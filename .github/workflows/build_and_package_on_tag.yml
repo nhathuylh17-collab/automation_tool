@@ -47,11 +47,12 @@ jobs:
           dir dist
         shell: cmd
 
-      - name: Run Inno Setup to create the installer
-        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
-        with:
-          path: automation_tool.iss
-          options: /O+
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+
+      - name: Build Installer
+        run: |
+          "C:\Program Files (x86)\Inno Setup 6\iscc.exe" /DMyVar="Value" "automation_tool.iss"
 
       - name: Get tag name
         id: tag_name
