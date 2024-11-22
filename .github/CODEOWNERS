@@ -1,0 +1,20 @@
+# This repo belongs to the Maersk-Global organization
+# Lines starting with '#' are comments.
+# This CODEOWNERS file has been added to your repository since the default branch did not contain one.
+# Each line is a file pattern followed by one or more owners.
+# If you want to add a user , it should be in the format @{github_id}
+# If you want to add a team , it should be in the format @Maersk-Global/{github team name}
+
+# These owners will be the default owners for everything in
+# the repo. Unless a later match takes precedence,
+# @Maersk-Global/{team_name} and {github_id} will be requested for
+# review when someone opens a pull request
+
+* @Maersk-Global/devops-team @Maersk-Global/front-end-team @Maersk-Global/ms-team
+
+# IMPORTANT!! make sure the team/user exists, is publicly visible, and has write access to the repository
+
+# Order is important; the last matching pattern takes the most precedence.
+# More details can be found here
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets
