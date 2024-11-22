@@ -52,7 +52,7 @@ jobs:
 
       - name: Build Installer
         run: |
-          "C:\Program Files (x86)\Inno Setup 6\iscc.exe" /DMyVar="Value" "automation_tool.iss"
+          & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" /DMyVar="Value" "automation_tool.iss"
 
       - name: Get tag name
         id: tag_name
