@@ -118,8 +118,8 @@ class GCSS_SPIR(DesktopTask):
                 self.current_element_count += 1
                 continue
 
-            self.current_status_excel_row_index += 1
-            self.current_element_count += 1
+            # self.current_status_excel_row_index += 1
+            # self.current_element_count += 1
 
         self.excel_provider.save(workbook)
         self.excel_provider.close(workbook)
@@ -247,7 +247,7 @@ class GCSS_SPIR(DesktopTask):
             # Find 'OPS (EQUIPMENT PICKUP)' and start capturing the next 2 tasks
             if array[0].text().startswith('OPS (EQUIPMENT PICKUP)'):
                 capture_tasks = True
-                tasks_to_capture = 2
+                tasks_to_capture = 3
 
             # If capturing, take the next two tasks (regardless of their status)
             if capture_tasks is True and tasks_to_capture > 0:
@@ -258,7 +258,7 @@ class GCSS_SPIR(DesktopTask):
                 if array[0].text().startswith('OPS (') and array[4].text() == 'Closed':
                     list_of_activity_plan_split.append(array[0])
 
-                tasks_to_capture -= 1  # Decrease the number of tasks to capture
+                tasks_to_capture -= 1
 
                 if tasks_to_capture == 0:
                     capture_tasks = False
@@ -274,6 +274,13 @@ class GCSS_SPIR(DesktopTask):
 
         pyautogui.hotkey('q')
         pyautogui.hotkey('p')
+        self.sleep()
+
+        pyautogui.hotkey('alt', 'v')
+        pyautogui.hotkey('alt', 'v')
+        pyautogui.hotkey('left')
+        pyautogui.hotkey('c')
+        self.sleep()
 
     def handle_invalid_window(self, shipment: str, workbook):
         logger: Logger = get_current_logger()
