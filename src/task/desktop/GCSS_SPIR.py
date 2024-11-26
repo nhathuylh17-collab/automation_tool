@@ -157,11 +157,11 @@ class GCSS_SPIR(DesktopTask):
                                                     2, 'Load')
 
                 pyautogui.hotkey('alt', 'k')
-                pyautogui.hotkey('alt')
-                pyautogui.hotkey('v')
-                pyautogui.hotkey('left')
-                pyautogui.hotkey('left')
-                pyautogui.hotkey('c')
+                # pyautogui.hotkey('alt')
+                # pyautogui.hotkey('v')
+                # pyautogui.hotkey('left')
+                # pyautogui.hotkey('left')
+                # pyautogui.hotkey('c')
                 self.sleep()
                 break
 
@@ -276,9 +276,8 @@ class GCSS_SPIR(DesktopTask):
         pyautogui.hotkey('p')
         self.sleep()
 
-        pyautogui.hotkey('alt', 'v')
-        pyautogui.hotkey('alt', 'v')
-        pyautogui.hotkey('left')
+        pyautogui.hotkey('alt', 'f')
+        pyautogui.hotkey('enter')
         pyautogui.hotkey('c')
         self.sleep()
 
