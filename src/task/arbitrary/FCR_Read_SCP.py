@@ -96,5 +96,4 @@ class FCR_Read_SCP(AutomatedTask):
 
         excel_reader.close(workbook=workbook)
         excel_reader.quit_session()
-        excel_reader.close(workbook=workbook)
         logger.info('Closed excel file - Done')
