@@ -51,7 +51,7 @@ class PDFCombine_KH(AutomatedTask):
         if len(bills) != len(withholding_taxes):
             raise Exception("Please check your input data length of bills, type_bill are not equal")
 
-        """Step 1: Store bill-to-info mapping"""
+        """Step 1: Store bill-to-info mapping - lay index number withholding vs bill"""
         index: int = 0
         for tax in withholding_taxes:
             self.tax_to_bill[tax] = (bills[index])

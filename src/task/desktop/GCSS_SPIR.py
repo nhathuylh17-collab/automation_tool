@@ -157,11 +157,6 @@ class GCSS_SPIR(DesktopTask):
                                                     2, 'Load')
 
                 pyautogui.hotkey('alt', 'k')
-                # pyautogui.hotkey('alt')
-                # pyautogui.hotkey('v')
-                # pyautogui.hotkey('left')
-                # pyautogui.hotkey('left')
-                # pyautogui.hotkey('c')
                 self.sleep()
                 break
 

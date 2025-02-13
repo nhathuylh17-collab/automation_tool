@@ -30,6 +30,7 @@ class PDFRead(AutomatedTask):
         excel_reader: ExcelReaderProvider = XlwingProvider()
 
         path_to_excel_contain_pdfs_content = self._settings['excel.path']
+
         workbook = excel_reader.get_workbook(path=path_to_excel_contain_pdfs_content)
         logger.info('Loading excel files')
 
@@ -52,8 +53,6 @@ class PDFRead(AutomatedTask):
                 if self.terminated is True:
                     return
 
-            # files = []
-
             for current_pdf in files:
                 if not current_pdf.lower().endswith(".pdf"):
                     continue
@@ -74,7 +73,6 @@ class PDFRead(AutomatedTask):
                     raw_text = pageText.extract_text()
                     clean_text = raw_text.replace("\x00", "").replace("=", "")
 
-                    # print( "text at page {} : {}".format(current_page_in_current_pdf, clean_text))
                     for line in clean_text.splitlines():
                         excel_reader.change_value_at(worksheet=worksheet, row=current_page_in_current_pdf,
                                                      column=pdf_counter, value=line)

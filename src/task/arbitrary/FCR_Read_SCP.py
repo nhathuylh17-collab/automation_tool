@@ -72,22 +72,23 @@ class FCR_Read_SCP(AutomatedTask):
                     raw_text = pageText.extract_text()
                     clean_text = raw_text.replace("\x00", "").replace("=", "")
                     line: str
-                    abc: list[str] = clean_text.splitlines()
+                    PDF_lengh: list[str] = clean_text.splitlines()
 
                     runner: int = 0
-                    while runner < len(abc):
-                        current = abc.__getitem__(runner)
-                        if current.startswith('MARKS & NUMBERS PACKAGES DESCRIPTION OF GOODS') and abc.__getitem__(
+                    while runner < len(PDF_lengh):
+                        current = PDF_lengh.__getitem__(runner)
+                        if current.startswith(
+                                'MARKS & NUMBERS PACKAGES DESCRIPTION OF GOODS') and PDF_lengh.__getitem__(
                                 runner + 1).startswith('KGS CBM'):
-                            logger.info(abc.__getitem__(runner + 2))
+                            logger.info(PDF_lengh.__getitem__(runner + 2))
 
                             excel_reader.change_value_at(worksheet=worksheet, row=current_page_in_current_pdf,
-                                                         column=pdf_counter, value=abc.__getitem__(runner + 2))
+                                                         column=pdf_counter, value=PDF_lengh.__getitem__(runner + 2))
                             current_page_in_current_pdf += 1
                         if current.startswith('**Total:'):
-                            logger.info(abc.__getitem__(runner))
+                            logger.info(PDF_lengh.__getitem__(runner))
                             excel_reader.change_value_at(worksheet=worksheet, row=current_page_in_current_pdf,
-                                                         column=pdf_counter, value=abc.__getitem__(runner))
+                                                         column=pdf_counter, value=PDF_lengh.__getitem__(runner))
                             current_page_in_current_pdf += 1
 
                         runner = runner + 1
