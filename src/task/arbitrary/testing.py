@@ -12,5 +12,3 @@ class testing(AutomatedTask):
     def mandatory_settings(self) -> list[str]:
         mandatory_keys: list[str] = ['excel.path', 'excel.sheet', 'folder_docs.folder']
         return mandatory_keys
-
-    def testing_something(self):
