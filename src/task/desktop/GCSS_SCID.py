@@ -144,6 +144,7 @@ class GCSS_SCID(DesktopTask):
             logger.info('Updated Invoice and Credit Parties')
 
         # 'Get Invoice Tab'
+        self.sleep()
         self.into_freight_and_pricing_tab()
 
         # 'Get the tab Invoice, then click the Modify button in 2nd window'
@@ -154,11 +155,14 @@ class GCSS_SCID(DesktopTask):
         # 'Open and interface with 3rd window - Maintain Pricing and Invoicing Window'
         Tab_controls_maintain_pricing_and_inv = self._window.children(class_name="SysTabControl32")[0]
         Tab_controls_maintain_pricing_and_inv.select(tab=1)
+        self.sleep()
 
         self.click_all_item_payment_term_collect()
+        self.sleep()
 
         # Into Maintain Invoice Details
         self._hotkey_then_open_new_window('Maintain Invoice Details', 'alt', 'i')
+        self.sleep()
 
         ComboBox_maintain_payment: ComboBoxWrapper = self._window.children(class_name="ComboBox")[0]
         ComboBox_maintain_payment.select('Collect')
@@ -199,18 +203,30 @@ class GCSS_SCID(DesktopTask):
 
         # Click OK button in 4th window and window will be auto closed
         number_of_titles_before = len(gw.getAllTitles())
+        pyautogui.hotkey('alt', 'k')
 
-        while len(gw.getAllTitles()) == number_of_titles_before:
-            list_btn: list[ButtonWrapper] = self._window.children(class_name="Button")
-            button_right: ButtonWrapper = list_btn[0]
-            button_right.click()
+        # while len(gw.getAllTitles()) == number_of_titles_before:
+        list_btn: list[ButtonWrapper] = self._window.children(class_name="Button")
+        button_right: ButtonWrapper = list_btn[0]
+        button_right.click()
+        # pyautogui.hotkey('alt', 'k')
 
         number_of_titles_after = len(gw.getAllTitles())
         if number_of_titles_after > number_of_titles_before:
             self._window_title_stack.append('Validation failed')
-            raise Exception('Invalid states ! Validation failed !')
+            pyautogui.hotkey('alt', 'k')  # click OK in window validation failed
+
+            list_btn: list[ButtonWrapper] = self._window.children(
+                class_name="Button")  # click button cancel and return status in excel
+            button_right: ButtonWrapper = list_btn[1]
+            button_right.click()
+            status_shipment: str = "Validation failed !"
+            self.input_status_into_excel(status_shipment)
+            self._close_windows_util_reach_first_gscc()
+            raise Exception('Validation failed !')
 
         # Click complete collect button _ in Maintain Pricing and Invoicing window
+        # if number_of_titles_after < number_of_titles_before:
         collect_details_collect_status: EditWrapper = self._window.children(class_name="Edit")[3]
         while True:
             pyautogui.hotkey('alt', 't')
@@ -341,7 +357,9 @@ class GCSS_SCID(DesktopTask):
         cnee_scv_no: str = cnee_edit_element.texts()
 
         self._window = self._hotkey_then_open_new_window('Party Details', 'alt', 'a')
+
         # Some shipments have been update manifes -> return
+        # _________________________________________
 
         self._window = self._hotkey_then_open_new_window('Customer Search', 'alt', 'c')
 

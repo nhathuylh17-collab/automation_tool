@@ -1,6 +1,9 @@
-import tkinter as tk
 from logging import Logger
-from tkinter import filedialog, Text
+from typing import Optional
+
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import QWidget, QLineEdit, QPushButton, QCheckBox, QHBoxLayout, QFileDialog, QLabel
 
 from src.common.FileUtil import persist_settings_to_file
 from src.common.ThreadLocalLogger import get_current_logger
@@ -14,7 +17,7 @@ class UIComponentFactory:
         self.app = app
 
     @staticmethod
-    def get_instance(app: UITaskPerformingStates):
+    def get_instance(app: UITaskPerformingStates) -> 'UIComponentFactory':
         if app is None:
             raise Exception('Must provide the GUI app instance')
 
@@ -27,103 +30,172 @@ class UIComponentFactory:
 
         return UIComponentFactory._instance
 
-    def create_component(self, setting_key: str, setting_value: str, parent_frame: tk.Frame) -> tk.Widget:
+    def create_component(self, setting_key: str, setting_value: str, parent_widget: QWidget) -> Optional[QWidget]:
         setting_key_in_lowercase: str = setting_key.lower()
 
         if setting_key_in_lowercase.endswith('invoked_class'):
             return None
 
         if setting_key_in_lowercase.startswith('use.'):
-            return self.create_checkbox_input(setting_key, setting_value, parent_frame)
+            return self.create_checkbox_input(setting_key, setting_value, parent_widget)
 
         if setting_key_in_lowercase.endswith('.folder'):
-            return self.create_folder_path_input(setting_key, setting_value, parent_frame)
+            return self.create_folder_path_input(setting_key, setting_value, parent_widget)
 
         if setting_key_in_lowercase.endswith('.path'):
-            return self.create_file_path_input(setting_key, setting_value, parent_frame)
+            return self.create_file_path_input(setting_key, setting_value, parent_widget)
 
-        # default case, just text field
-        return self.create_textbox_input(setting_key, setting_value, parent_frame)
+        # Default case: text field
+        return self.create_textbox_input(setting_key, setting_value, parent_widget)
 
-    def create_textbox_input(self, setting_key: str, setting_value: str, parent_frame: tk.Frame) -> tk.Text:
-        def update_field_data(event, app_states: UITaskPerformingStates):
-            text_widget = event.widget
-            new_value = text_widget.get("1.0", "end-1c")
-            field_name = text_widget.special_id
-            app_states.get_ui_settings()[field_name] = new_value
-            app_states.get_task_instance().settings = app_states.get_ui_settings()
-            persist_settings_to_file(app_states.get_task_name(), app_states.get_ui_settings())
+    def create_textbox_input(self, setting_key: str, setting_value: str, parent_widget: QWidget) -> QLineEdit:
+        def update_field_data(text: str):
+            try:
+                field_name = input_field.property("setting_key")
+                self.app.get_ui_settings()[field_name] = text
+                self.app.get_task_instance().settings = self.app.get_ui_settings()
+                persist_settings_to_file(self.app.get_task_name(), self.app.get_ui_settings())
 
-            logger: Logger = get_current_logger()
-            logger.debug("Change data on field {} to {}".format(field_name, new_value))
+                logger: Logger = get_current_logger()
+                logger.debug(f"Change data on field {field_name} to {text}")
+            except Exception as e:
+                logger.error(f"Error updating field {field_name}: {str(e)}")
 
-        field_label = tk.Label(master=parent_frame, text=setting_key, width=25,
-                               font=('Maersk Text', 9), fg='#FFFFFF', bg='#00243D', borderwidth=0)
-        field_label.pack(side="left")
+        layout = QHBoxLayout()
+        parent_widget.setLayout(layout)
 
-        field_input = tk.Text(master=parent_frame, width=80, height=1, font=('Maersk Text', 9),
-                              background='#EDEDED', fg='#000000', borderwidth=0)
-        field_input.pack(side="left")
-        field_input.special_id = setting_key
-        field_input.insert("1.0", '' if setting_value is None else setting_value)
-        field_input.bind("<KeyRelease>", lambda event, app=self.app: update_field_data(event, app))
+        # Label
+        label = QLabel(setting_key)
+        label.setFont(QFont("Maersk Headline", 9))
+        label.setStyleSheet("color: #363636; background-color: #00243D; padding: 2px 5px;")
+        layout.addWidget(label)
 
-        return field_input
+        # Input field
+        input_field = QLineEdit(parent_widget)
+        input_field.setFont(QFont("Maersk Headline", 9))
+        input_field.setStyleSheet("""
+            QLineEdit {
+                background-color: #F0F0F0;
+                border: 1px solid #D4D4D4;
+                border-radius: 5px;
+                padding: 5px;
+                color: #363636;
+            }
+            QLineEdit:hover {
+                border: 1px solid #1686BD;
+            }
+        """)
+        input_field.setText('' if setting_value is None else setting_value)
+        input_field.setProperty("setting_key", setting_key)  # Lưu setting_key để dùng sau
+        input_field.textChanged.connect(update_field_data)
+        layout.addWidget(input_field)
 
-    def create_folder_path_input(self, setting_key: str, setting_value: str, parent_frame: tk.Frame):
+        return input_field
 
-        def choosing_dir_callback(main_textbox: tk.Text):
-            main_textbox.focus_set()
-            dir_path = filedialog.askdirectory()
-            if dir_path:
-                main_textbox.delete("1.0", tk.END)
-                main_textbox.insert(tk.END, dir_path)
-                main_textbox.event_generate("<KeyRelease>")
+    def create_folder_path_input(self, setting_key: str, setting_value: str, parent_widget: QWidget) -> QLineEdit:
+        def choose_dir_callback():
+            try:
+                dir_path, _ = QFileDialog.getExistingDirectory(parent_widget, "Choose Folder", "")
+                if dir_path:
+                    input_field.setText(dir_path)
+                    update_field_data(dir_path)
+            except Exception as e:
+                logger = get_current_logger()
+                logger.error(f"Error choosing directory: {str(e)}")
 
-        text_box: Text = self.create_textbox_input(setting_key, setting_value, parent_frame)
-        btn_choose = tk.Button(master=parent_frame, text="Choose Folder", font=('Maersk Headline', 9),
-                               command=lambda: choosing_dir_callback(text_box),
-                               height=1, borderwidth=0, bg='#2FACE8', fg='#FFFFFF')
-        btn_choose.pack(side="right")
+        input_field = self.create_textbox_input(setting_key, setting_value, parent_widget)
 
-        return text_box
+        # Button "Choose Folder"
+        choose_btn = QPushButton("Choose Folder")
+        choose_btn.setFont(QFont("Maersk Headline", 9))
+        choose_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2FACE8;
+                color: #FFFFFF;
+                padding: 5px 15px;
+                border: none;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #42B0D5;
+            }
+        """)
+        choose_btn.clicked.connect(choose_dir_callback)
+        input_field.parent().layout().addWidget(choose_btn)
 
-    def create_file_path_input(self, setting_key: str, setting_value: str, parent_frame: tk.Frame):
+        return input_field
 
-        def choosing_file_callback(main_textbox: tk.Text):
-            main_textbox.focus_set()
-            file_path = filedialog.askopenfilename()
-            if file_path:
-                main_textbox.delete("1.0", tk.END)
-                main_textbox.insert(tk.END, file_path)
-                main_textbox.event_generate("<KeyRelease>")
+    def create_file_path_input(self, setting_key: str, setting_value: str, parent_widget: QWidget) -> QLineEdit:
+        def choose_file_callback():
+            try:
+                file_path, _ = QFileDialog.getOpenFileName(parent_widget, "Choose File", "", "All Files (*)")
+                if file_path:
+                    input_field.setText(file_path)
+                    update_field_data(file_path)
+            except Exception as e:
+                logger = get_current_logger()
+                logger.error(f"Error choosing file: {str(e)}")
 
-        text_box: Text = self.create_textbox_input(setting_key, setting_value, parent_frame)
-        btn_choose = tk.Button(master=parent_frame, text="Choose File", font=('Maersk Headline', 9),
-                               command=lambda: choosing_file_callback(text_box),
-                               height=1, borderwidth=0, bg='#2FACE8', fg='#FFFFFF')
-        btn_choose.pack(side="right")
+        input_field = self.create_textbox_input(setting_key, setting_value, parent_widget)
 
-        return text_box
+        # Button "Choose File"
+        choose_btn = QPushButton("Choose File")
+        choose_btn.setFont(QFont("Maersk Headline", 9))
+        choose_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2FACE8;
+                color: #FFFFFF;
+                padding: 5px 15px;
+                border: none;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #42B0D5;
+            }
+        """)
+        choose_btn.clicked.connect(choose_file_callback)
+        input_field.parent().layout().addWidget(choose_btn)
 
-    def create_checkbox_input(self, setting_key: str, setting_value: str, parent_frame: tk.Frame) -> tk.Checkbutton:
+        return input_field
 
-        def updating_checkbox_callback(setting_name: str, value: tk.BooleanVar, app_states: UITaskPerformingStates):
-            app_states.get_ui_settings()[setting_name] = str(value.get())
-            app_states.get_task_instance().settings = app_states.get_ui_settings()
-            app_states.get_task_instance().use_gui = value.get()
-            persist_settings_to_file(app_states.get_task_name(), app_states.get_ui_settings())
+    def create_checkbox_input(self, setting_key: str, setting_value: str, parent_widget: QWidget) -> QCheckBox:
+        def update_checkbox_callback(checked: bool):
+            try:
+                self.app.get_ui_settings()[setting_key] = str(checked)
+                self.app.get_task_instance().settings = self.app.get_ui_settings()
+                self.app.get_task_instance().use_gui = checked
+                persist_settings_to_file(self.app.get_task_name(), self.app.get_ui_settings())
+            except Exception as e:
+                logger = get_current_logger()
+                logger.error(f"Error updating checkbox {setting_key}: {str(e)}")
 
-        is_gui: bool = True if setting_value.lower() == 'true' else False
+        is_checked = True if setting_value.lower() == 'true' else False
 
-        is_checked = tk.BooleanVar(value=is_gui)
+        checkbox = QCheckBox(setting_key, parent_widget)
+        checkbox.setFont(QFont("Maersk Headline", 9))
+        checkbox.setStyleSheet("""
+            QCheckBox {
+                color: #363636;
+                background-color: #F0F0F0;
+                padding: 5px;
+            }
+            QCheckBox::indicator {
+                width: 20px;
+                height: 20px;
+            }
+            QCheckBox::indicator:unchecked {
+                background-color: #FFFFFF;
+                border: 1px solid #D4D4D4;
+                border-radius: 5px;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #2FACE8;
+                border: 1px solid #1686BD;
+                border-radius: 5px;
+            }
+        """)
+        checkbox.setChecked(is_checked)
+        checkbox.stateChanged.connect(lambda state: update_checkbox_callback(state == Qt.Checked))
+        parent_widget.layout().addWidget(checkbox)
 
-        use_gui_checkbox = tk.Checkbutton(parent_frame, text=setting_key,
-                                          font=('Maersk Text', 9), background='#2FACE8',
-                                          width=21, height=1,
-                                          variable=is_checked,
-                                          command=lambda: updating_checkbox_callback(setting_key, is_checked,
-                                                                                     self.app))
-        use_gui_checkbox.pack(anchor="w", pady=5)
-
-        return use_gui_checkbox
+        return checkbox

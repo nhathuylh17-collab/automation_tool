@@ -30,7 +30,6 @@ class Download_Blx(WebTask):
         logger.info(
             "---------------------------------------------------------------------------------------------------------")
         logger.info("Start processing")
-
         self._driver.get('https://apll.get-traction.com/')
 
         logger.info('Try to login')

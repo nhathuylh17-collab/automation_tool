@@ -1,27 +1,36 @@
 import logging
-import tkinter as tk
+
+from PyQt5.QtWidgets import QTextEdit
 
 from src.common.ThreadLocalLogger import get_current_logger
 
 
 class TextBoxLoggingHandler(logging.Handler):
-
-    def __init__(self, textbox):
+    def __init__(self, textbox: QTextEdit):
         super().__init__()
         self.textbox = textbox
 
-    def emit(self, record: str):
+    def emit(self, record):
         msg = self.format(record)
-        self.textbox.config(state=tk.NORMAL)
-        self.textbox.insert(tk.END, msg + '\n')
-        self.textbox.config(state=tk.DISABLED)
-        self.textbox.see(tk.END)
+        # Đảm bảo thread-safe khi cập nhật UI
+        self.textbox.append(msg)  # QTextEdit có phương thức append để thêm text
+        self.textbox.verticalScrollBar().setValue(
+            self.textbox.verticalScrollBar().maximum())  # Tự động scroll xuống cuối
 
 
-def setup_textbox_logger(textbox: tk.Text):
+class CustomLogFormatter(logging.Formatter):
+    def format(self, record):
+        # Lấy thời gian (chỉ giờ:phút:giây), loại bỏ mili giây
+        time = record.asctime.split(',')[0]  # Lấy phần "YYYY-MM-DD HH:MM:SS" rồi tách HH:MM:SS
+        time_part = time.split()[-1]  # Lấy phần "HH:MM:SS"
+        module = record.module  # Tên module (ví dụ: "AutomatedTask")
+        message = record.message  # Thông điệp log (ví dụ: "Run in headless mode")
+        return f"{time_part}    {module}:   {message}"
+
+
+def setup_textbox_logger(textbox: QTextEdit):
     thread_local_logger: logging.Logger = get_current_logger()
     logging_handler: TextBoxLoggingHandler = TextBoxLoggingHandler(textbox)
-    formatter: logging.Formatter = logging.Formatter(
-        'GUI APP - %(asctime)s - %(levelname)s - %(filename)s %(funcName)s#%(lineno)d: %(message)s')
+    formatter: CustomLogFormatter = CustomLogFormatter()  # Sử dụng formatter tùy chỉnh
     logging_handler.setFormatter(formatter)
     thread_local_logger.addHandler(logging_handler)

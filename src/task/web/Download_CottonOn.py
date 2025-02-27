@@ -41,14 +41,17 @@ class Download_CottonOn(WebTask):
         logger.info("Start processing")
 
         self._driver.get('https://app.shipeezi.com/')
-
         logger.info('Try to login')
+
         self.__login()
+
         logger.info("Login successfully")
 
         logger.info("Navigate to overview Booking page the first time")
+
         # click navigating operations on header
         time.sleep(1)
+
         self._click_when_element_present(by=By.CSS_SELECTOR, value='div[data-cy=nav-Operations]')
         # click navigating overview bookings page - on the header
         self._click_and_wait_navigate_to_other_page(by=By.CSS_SELECTOR, value='li[data-cy=bookings]')
@@ -72,7 +75,7 @@ class Download_CottonOn(WebTask):
         if len(booking_ids) != len(becodes) or len(booking_ids) != len(becodes):
             raise Exception("Please check your input data length of becode, sonumber and booking are not equal")
 
-        # info means becode and so number
+        # info means becode and so number - lay tuong ung hang
         index: int = 0
         for booking in booking_ids:
             self.booking_to_info[booking] = (so_numbers[index], becodes[index])
@@ -93,7 +96,9 @@ class Download_CottonOn(WebTask):
                     return
 
             logger.info("Processing booking : " + booking)
+
             self.__navigate_and_download(booking)
+
             last_booking = booking
 
         self._driver.close()
@@ -151,8 +156,8 @@ class Download_CottonOn(WebTask):
                 continue
 
         # click detail booking
-        self._click_when_element_present(by=By.CSS_SELECTOR, value='td[data-cy=table-cell-actions] '
-                                                                   'div[data-cy=action-details] svg ')
+        self._click_when_element_present(by=By.CSS_SELECTOR,
+                                         value='td[data-cy=table-cell-actions] div[data-cy=action-details] svg ')
         # click tab document
         self._click_when_element_present(by=By.ID, value='item-documents')
 
