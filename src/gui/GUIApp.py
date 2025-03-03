@@ -347,13 +347,13 @@ class GUIApp(QMainWindow):
 
         # Main content
         main_content = QFrame()
-        main_content.setStyleSheet("background-color: #F0F0F0; border: 1px solid #D4D4D4; border-radius: 5px;")
+        main_content.setStyleSheet("background-color: #F0F0F0; border: 0px solid #D4D4D4; border-radius: 5px;")
         main_content_layout = QHBoxLayout(main_content)
         main_content_layout.setAlignment(Qt.AlignCenter)
 
         # Nội dung chính (settings frame với scroll bar, thiết kế thanh cuộn mảnh và hiện đại)
         content_frame = QFrame()
-        content_frame.setStyleSheet("background-color: #FFFFFF; border: 1px solid #D4D4D4; border-radius: 5px;")
+        content_frame.setStyleSheet("background-color: #FFFFFF; border: 0px solid #D4D4D4; border-radius: 5px;")
         content_layout = QVBoxLayout(content_frame)
 
         # Khu vực hiển thị field với scroll bar
@@ -398,7 +398,7 @@ class GUIApp(QMainWindow):
         scroll_area_content.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)  # Chỉ hiển thị scrollbar dọc khi cần
         self.settings_frame = QFrame()
         self.settings_frame.setStyleSheet(
-            "background-color: #FFFFFF; border: 1px solid #D4D4D4; border-radius: 5px; padding: 10px;")
+            "background-color: #FFFFFF; border: 0px solid #D4D4D4; border-radius: 5px; padding: 10px;")
         self.settings_layout = QVBoxLayout(self.settings_frame)
         scroll_area_content.setWidget(self.settings_frame)
         content_layout.addWidget(scroll_area_content)

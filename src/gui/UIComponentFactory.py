@@ -45,7 +45,6 @@ class UIComponentFactory:
         if setting_key_in_lowercase.endswith('.path'):
             return self.create_file_path_input(setting_key, setting_value, parent_widget)
 
-        # Default case: text field
         return self.create_textbox_input(setting_key, setting_value, parent_widget)
 
     def create_textbox_input(self, setting_key: str, setting_value: str, parent_widget: QWidget) -> QLineEdit:
@@ -62,15 +61,14 @@ class UIComponentFactory:
                 logger.error(f"Error updating field {field_name}: {str(e)}")
 
         layout = QHBoxLayout()
+        layout.setSpacing(10)  # Add spacing between elements
         parent_widget.setLayout(layout)
 
-        # Label
         label = QLabel(setting_key)
         label.setFont(QFont("Maersk Headline", 9))
         label.setStyleSheet("color: #363636; background-color: #00243D; padding: 2px 5px;")
         layout.addWidget(label)
 
-        # Input field
         input_field = QLineEdit(parent_widget)
         input_field.setFont(QFont("Maersk Headline", 9))
         input_field.setStyleSheet("""
@@ -86,16 +84,17 @@ class UIComponentFactory:
             }
         """)
         input_field.setText('' if setting_value is None else setting_value)
-        input_field.setProperty("setting_key", setting_key)  # Lưu setting_key để dùng sau
+        input_field.setProperty("setting_key", setting_key)
         input_field.textChanged.connect(update_field_data)
         layout.addWidget(input_field)
+        layout.addStretch(1)  # Add stretch to push button to the right
 
         return input_field
 
     def create_folder_path_input(self, setting_key: str, setting_value: str, parent_widget: QWidget) -> QLineEdit:
         def choose_dir_callback():
             try:
-                dir_path, _ = QFileDialog.getExistingDirectory(parent_widget, "Choose Folder", "")
+                dir_path = QFileDialog.getExistingDirectory(parent_widget, "Choose Folder", "")
                 if dir_path:
                     input_field.setText(dir_path)
                     update_field_data(dir_path)
@@ -103,9 +102,19 @@ class UIComponentFactory:
                 logger = get_current_logger()
                 logger.error(f"Error choosing directory: {str(e)}")
 
+        def update_field_data(text: str):
+            try:
+                field_name = input_field.property("setting_key")
+                self.app.get_ui_settings()[field_name] = text
+                self.app.get_task_instance().settings = self.app.get_ui_settings()
+                persist_settings_to_file(self.app.get_task_name(), self.app.get_ui_settings())
+                logger: Logger = get_current_logger()
+                logger.debug(f"Change data on field {field_name} to {text}")
+            except Exception as e:
+                logger.error(f"Error updating field {field_name}: {str(e)}")
+
         input_field = self.create_textbox_input(setting_key, setting_value, parent_widget)
 
-        # Button "Choose Folder"
         choose_btn = QPushButton("Choose Folder")
         choose_btn.setFont(QFont("Maersk Headline", 9))
         choose_btn.setStyleSheet("""
@@ -121,7 +130,10 @@ class UIComponentFactory:
             }
         """)
         choose_btn.clicked.connect(choose_dir_callback)
-        input_field.parent().layout().addWidget(choose_btn)
+
+        # Add button after the stretch
+        layout = input_field.parent().layout()
+        layout.addWidget(choose_btn)
 
         return input_field
 
@@ -136,9 +148,19 @@ class UIComponentFactory:
                 logger = get_current_logger()
                 logger.error(f"Error choosing file: {str(e)}")
 
+        def update_field_data(text: str):
+            try:
+                field_name = input_field.property("setting_key")
+                self.app.get_ui_settings()[field_name] = text
+                self.app.get_task_instance().settings = self.app.get_ui_settings()
+                persist_settings_to_file(self.app.get_task_name(), self.app.get_ui_settings())
+                logger: Logger = get_current_logger()
+                logger.debug(f"Change data on field {field_name} to {text}")
+            except Exception as e:
+                logger.error(f"Error updating field {field_name}: {str(e)}")
+
         input_field = self.create_textbox_input(setting_key, setting_value, parent_widget)
 
-        # Button "Choose File"
         choose_btn = QPushButton("Choose File")
         choose_btn.setFont(QFont("Maersk Headline", 9))
         choose_btn.setStyleSheet("""
@@ -154,7 +176,10 @@ class UIComponentFactory:
             }
         """)
         choose_btn.clicked.connect(choose_file_callback)
-        input_field.parent().layout().addWidget(choose_btn)
+
+        # Add button after the stretch
+        layout = input_field.parent().layout()
+        layout.addWidget(choose_btn)
 
         return input_field
 
@@ -169,7 +194,7 @@ class UIComponentFactory:
                 logger = get_current_logger()
                 logger.error(f"Error updating checkbox {setting_key}: {str(e)}")
 
-        is_checked = True if setting_value.lower() == 'true' else False
+        is_checked = setting_value.lower() == 'true'
 
         checkbox = QCheckBox(setting_key, parent_widget)
         checkbox.setFont(QFont("Maersk Headline", 9))
