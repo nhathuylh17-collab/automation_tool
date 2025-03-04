@@ -196,31 +196,46 @@ class UIComponentFactory:
 
         is_checked = setting_value.lower() == 'true'
 
-        checkbox = QCheckBox(setting_key, parent_widget)
+        # Tạo layout ngang
+        layout = QHBoxLayout()
+        layout.setSpacing(5)
+        parent_widget.setLayout(layout)
+
+        # Tạo label
+        label = QLabel(setting_key)
+        label.setFont(QFont("Maersk Headline", 9))
+        label.setStyleSheet("color: #363636; padding: 2px 5px;")
+        layout.addWidget(label)
+
+        # Tạo checkbox
+        checkbox = QCheckBox(parent_widget)
         checkbox.setFont(QFont("Maersk Headline", 9))
         checkbox.setStyleSheet("""
             QCheckBox {
                 color: #363636;
-                background-color: #F0F0F0;
-                padding: 5px;
+                background-color: none;
+                padding: 0px;
             }
             QCheckBox::indicator {
                 width: 20px;
                 height: 20px;
-            }
-            QCheckBox::indicator:unchecked {
-                background-color: #FFFFFF;
+                border-radius: 10px;  /* Hình tròn */
+                background-color: #FFFFFF;  /* Đảm bảo nền áp dụng */
                 border: 1px solid #D4D4D4;
-                border-radius: 5px;
             }
             QCheckBox::indicator:checked {
                 background-color: #2FACE8;
                 border: 1px solid #1686BD;
-                border-radius: 5px;
+            }
+            QCheckBox::indicator:unchecked {
+                background-color: #FFFFFF;
+                border: 1px solid #D4D4D4;
             }
         """)
         checkbox.setChecked(is_checked)
         checkbox.stateChanged.connect(lambda state: update_checkbox_callback(state == Qt.Checked))
-        parent_widget.layout().addWidget(checkbox)
+        layout.addWidget(checkbox)
+
+        layout.addStretch(1)
 
         return checkbox

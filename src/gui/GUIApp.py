@@ -5,7 +5,7 @@ from typing import Dict, Optional
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QFont, QPixmap
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-                             QTextEdit, QProgressBar, QFrame, QMessageBox, QScrollArea, QSplitter)
+                             QTextEdit, QProgressBar, QFrame, QMessageBox, QScrollArea, QSplitter, QCheckBox, QComboBox)
 
 # Import các module cần thiết từ dự án
 from src.common.FileUtil import load_key_value_from_file_properties, persist_settings_to_file
@@ -562,6 +562,8 @@ class GUIApp(QMainWindow):
         # Cấu hình logger cho textbox với formatter tùy chỉnh
         self.setup_custom_logger()
 
+        self.handle_homepage("HomePage")
+
     def setup_custom_logger(self):
         """Cấu hình logger với formatter tùy chỉnh để hiển thị log theo định dạng: 'HH:MM:SS Module Message'."""
         setup_textbox_logger(self.logging_textbox)
@@ -592,18 +594,18 @@ class GUIApp(QMainWindow):
         persist_settings_to_file(self.current_task_name, self.current_task_settings)
         event.accept()
 
-    def handle_homepage(self, menu: str):
-        """Xử lý khi nhấn nút HomePage."""
-        # Xóa nội dung cũ trong settings layout và ẩn các nút task con
-        for i in reversed(range(self.settings_layout.count())):
-            self.settings_layout.itemAt(i).widget().setParent(None)
-        for menu_tasks in self.task_buttons.values():
-            for btn in menu_tasks:
-                btn.setVisible(False)
-        # self.logger.info("Displaying HomePage.")
-        self.current_task_name = None
-        self.automated_task = None
-        self.current_task_settings = {}
+    # def handle_homepage(self, menu: str):
+    #     """Xử lý khi nhấn nút HomePage."""
+    #     # Xóa nội dung cũ trong settings layout và ẩn các nút task con
+    #     for i in reversed(range(self.settings_layout.count())):
+    #         self.settings_layout.itemAt(i).widget().setParent(None)
+    #     for menu_tasks in self.task_buttons.values():
+    #         for btn in menu_tasks:
+    #             btn.setVisible(False)
+    #     # self.logger.info("Displaying HomePage.")
+    #     self.current_task_name = None
+    #     self.automated_task = None
+    #     self.current_task_settings = {}
 
     def toggle_task_list(self, menu: str, dir_name: str):
         """Hiển thị hoặc ẩn danh sách các task từ thư mục riêng cho từng menu, giữ các menu khác nguyên, đảm bảo chỉ hiển thị tasks của thư mục tương ứng, và hỗ trợ toggle (hiển thị/ẩn) khi click lại nút."""
@@ -649,7 +651,7 @@ class GUIApp(QMainWindow):
                     background-color: #FFFFFF;
                     color: #6A6A6A;  /* Màu xám như nút menu chính */
                     padding: 5px 0 5px 20px;  /* Padding trái lớn hơn để thụt lề */
-                    border: none;
+                    border: 1px;
                     width: 100%;
                     text-align: left;
                     font-weight: normal;
@@ -696,13 +698,25 @@ class GUIApp(QMainWindow):
         if 'time.unit.factor' not in input_setting_values:
             input_setting_values['time.unit.factor'] = '1'
         if 'use.GUI' not in input_setting_values:
-            input_setting_values['use.GUI'] = 'True'
+            input_setting_values['use.GUI'] = 'False'
 
         # Tạo instance của task
         self.automated_task = create_task_instance(input_setting_values, task_name,
                                                    lambda: self.setup_custom_logger())
         mandatory_settings = self.automated_task.mandatory_settings()
         mandatory_settings.extend(['invoked_class', 'time.unit.factor', 'use.GUI'])
+
+        # Xác định menu của task dựa trên cách tổ chức trong toggle_task_list
+        task_menu = None
+        for menu, task_buttons in self.task_buttons.items():
+            for btn in task_buttons:
+                if btn.text() == task_name:
+                    task_menu = menu
+                    break
+            if task_menu:
+                break
+        if not task_menu and task_name in self.sidebar_menus:
+            task_menu = task_name  # Trường hợp HomePage
 
         # Cập nhật thông tin task và settings
         self.current_task_name = task_name
@@ -711,12 +725,17 @@ class GUIApp(QMainWindow):
             initial_value = input_setting_values.get(setting, '')
             self.current_task_settings[setting] = initial_value
 
+            if setting == 'invoked_class':  # hide invoked_class
+                continue
+            if setting == 'use.GUI' and task_menu != "Website":
+                continue
+
             # Tạo label và input cho mỗi thiết lập, loại bỏ hoàn toàn border để phẳng hơn
             setting_frame = QFrame()
-            setting_frame.setStyleSheet("background-color: #FFFFFF;")  # Loại bỏ border, giữ nền trắng
+            setting_frame.setStyleSheet("background-color: #FFFFFF")  # Loại bỏ border, giữ nền trắng
             setting_layout = QHBoxLayout(setting_frame)
             setting_layout.setContentsMargins(0, 0, 0, 0)  # Loại bỏ margin để phẳng hơn
-            setting_layout.setSpacing(5)  # Khoảng cách nhỏ giữa label và input
+            setting_layout.setSpacing(2)  # Khoảng cách nhỏ giữa label và input
 
             label = QLabel(f"{setting}:")
             label.setFont(QFont("Maersk Headline", 10))
@@ -725,11 +744,9 @@ class GUIApp(QMainWindow):
 
             from src.gui.UIComponentFactory import UIComponentFactory
             component = UIComponentFactory.get_instance(self).create_component(setting, initial_value, setting_frame)
-            if component:
-                # Loại bỏ viền của component (input) để phẳng hoàn toàn, giữ nền trắng
-                component.setStyleSheet(
-                    "border: none; background-color: #FFFFFF; padding: 5px;")  # Không viền, nền trắng, padding nhỏ
-                setting_layout.addWidget(component)
+            if not isinstance(component, QCheckBox):
+                component.setStyleSheet("border: none; background-color: #FFFFFF; padding: 2px;")
+            setting_layout.addWidget(component)
 
             self.settings_layout.addWidget(setting_frame)
 
@@ -818,6 +835,209 @@ class GUIApp(QMainWindow):
             self.showNormal()  # Khôi phục về kích thước ban đầu (1200x800)
         else:
             self.showMaximized()  # Chuyển sang chế độ toàn màn hình
+
+    def handle_homepage(self, menu: str):
+        """Xử lý khi nhấn nút HomePage, hiển thị giao diện mới với dropdown cho version từ thư mục release_notes."""
+        # Xóa nội dung cũ trong settings layout và ẩn các nút task con
+        for i in reversed(range(self.settings_layout.count())):
+            self.settings_layout.itemAt(i).widget().setParent(None)
+        for menu_tasks in self.task_buttons.values():
+            for btn in menu_tasks:
+                btn.setVisible(False)
+
+        self.logger.info("Displaying HomePage.")
+
+        # Xóa nội dung cũ trong settings_frame
+        self.current_task_name = None
+        self.automated_task = None
+        self.current_task_settings = {}
+
+        # Đường dẫn đến thư mục release_notes (tính tương đối từ GUIApp.py)
+        release_notes_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'release_notes')
+        if not os.path.exists(release_notes_path):
+            self.logger.error(f"Release notes directory not found at {release_notes_path}")
+            release_notes_path = os.path.dirname(__file__)  # Fallback đến thư mục hiện tại nếu không tìm thấy
+
+        # Tạo layout chính cho HomePage (rightside)
+        self.settings_frame.setLayout(QVBoxLayout())  # Đảm bảo settings_frame có layout mới
+        home_layout = self.settings_frame.layout()
+
+        # Thêm khung chứa 4 ô ngang (Version, Bug, Dev, Team) dưới dạng button lớn
+        top_frame = QFrame()
+        top_frame.setStyleSheet(
+            "background-color: #FFFFFF; border: 0px solid #F0F0F0; border-radius: 5px; padding: 10px;")
+        top_layout = QHBoxLayout(top_frame)
+        top_layout.setSpacing(10)
+
+        # Lấy danh sách version từ thư mục release_notes
+        def get_versions():
+            try:
+                versions = []
+                for f in os.listdir(release_notes_path):
+                    if f.endswith('.txt'):
+                        name = f.replace('.txt', '')
+                        # Chỉ giữ lại các file bắt đầu bằng 'v' và có định dạng semantic versioning (vX.Y.Z)
+                        if name.startswith('v'):
+                            try:
+                                # Kiểm tra xem có thể phân tích thành các số nguyên không
+                                parts = name.replace('v', '').split('.')
+                                if len(parts) == 3 and all(part.isdigit() for part in parts):
+                                    versions.append(name)
+                            except ValueError:
+                                continue  # Bỏ qua nếu không phải định dạng semantic versioning
+                # Sắp xếp theo semantic versioning
+                versions.sort(key=lambda x: [int(i) for i in x.replace('v', '').split('.')])
+                return versions
+            except OSError as e:
+                self.logger.error(f"Error reading release notes directory: {str(e)}")
+                return ['v1.0.0']  # Default nếu không lấy được versions
+
+        # Lấy danh sách versions
+        versions = get_versions()
+        if not versions:
+            self.logger.warning("No version files found in release_notes directory.")
+            versions = ['v1.0.0']  # Default nếu không lấy được versions
+
+        # Lấy version mới nhất (version có số lớn nhất)
+        latest_version = versions[-1] if versions else 'v1.0.0'
+        # Lấy message từ file .txt của version mới nhất
+        default_message = self.get_message_for_version(latest_version, release_notes_path)
+        # Định dạng message với icon ⚓
+        formatted_default_message = self.format_message(default_message)
+
+        # Các ô ngang (Version, Bug, Dev, Team) dưới dạng button lớn
+        fields = [
+            ("Version", versions),  # Version sẽ là dropdown list dưới dạng button lớn
+            ("Bug", "abc"),
+            ("Dev", "HNL014"),
+            ("Team", "Bespoke Automation Committee")
+        ]
+
+        for title, value in fields:
+            if title == "Version":
+                # Tạo dropdown list cho Version dưới dạng button lớn
+                version_combo = QComboBox()
+                version_combo.setFont(QFont("Maersk Headline", 10))
+                version_combo.setStyleSheet(f"""
+                    QComboBox {{
+                        background-color: #FFFFFF;
+                        color: #003E62;
+                        padding: 10px 15px;
+                        border: 1px solid #D4D4D4;
+                        border-radius: 5px;
+                        min-width: 150px;  /* Đảm bảo kích thước đủ lớn cho ô */
+                        min-height: 80px;  /* Đảm bảo chiều cao phù hợp */
+                        text-align: center;  /* Căn giữa nội dung trong dropdown */
+                    }}
+                    QComboBox:hover {{
+                        background-color: #003E62;
+                        border: 0px solid #42B0D5;
+                        color: #FFFFFF;
+                        content: "▼";
+                        
+                    }}
+                    QComboBox::drop-down {{
+                        border: none;
+                        width: 20px;  /* Điều chỉnh kích thước mũi tên dropdown */
+                    }}
+                    QComboBox QAbstractItemView {{
+                        background-color: #FFFFFF;
+                        border: 1px solid #D4D4D4;
+                        selection-background-color: #42B0D5;
+                    }}
+                """)
+                version_combo.addItems(value)  # Thêm các versions vào dropdown
+                version_combo.setCurrentText(latest_version)  # Mặc định chọn version mới nhất
+
+                # Xử lý khi chọn version từ dropdown
+                def on_version_changed(index):
+                    selected_version = version_combo.itemText(index)
+                    message = self.get_message_for_version(selected_version, release_notes_path)
+                    formatted_message = self.format_message(message)  # Định dạng message với icon ⚓
+                    description.setText(f'{formatted_message}')
+
+                version_combo.currentIndexChanged.connect(on_version_changed)
+                top_layout.addWidget(version_combo)
+            else:
+                # Tạo button lớn cho Bug, Dev, Team
+                button = QPushButton(value)
+                button.setFont(QFont("Maersk Headline", 10))
+                button.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: #FFFFFF;
+                        color: #003E62;
+                        padding: 10px 15px;
+                        border: 1px solid #D4D4D4;
+                        border-radius: 5px;
+                        min-width: 150px;  /* Đảm bảo kích thước đủ lớn cho từng ô */
+                        min-height: 80px;  /* Đảm bảo chiều cao phù hợp */
+                        text-align: center;  /* Căn giữa nội dung trong button */
+                    }}
+                    QPushButton:hover {{
+                        background-color: #003E62;
+                        border: 0px solid #42B0D5;
+                        color: #FFFFFF;
+                    }}
+                """)
+                button.clicked.connect(lambda checked, t=title, v=value: self.logger.info(f"Clicked {t}: {v}"))
+                top_layout.addWidget(button)
+
+        home_layout.addWidget(top_frame)
+
+        # Thêm khung lớn bên dưới chứa text (mô tả message từ file .txt)
+        bottom_frame = QFrame()
+        bottom_frame.setStyleSheet(
+            "background-color: #FFFFFF; border: 0px solid #D4D4D4; border-radius: 5px; padding: 5px 5px 5px 10px; margin-top: 5px;")
+        bottom_layout = QVBoxLayout(bottom_frame)
+        bottom_layout.setAlignment(Qt.AlignLeft)  # Căn trái toàn bộ bottom_frame
+
+        description = QTextEdit()  # Sử dụng QTextEdit để kiểm soát định dạng tốt hơn
+        description.setFont(QFont("Maersk Text", 10))
+        description.setStyleSheet("color: #6A6A6A; background-color: #FFFFFF; border: none; padding: 5px;")
+        description.setReadOnly(True)  # Không cho phép chỉnh sửa
+        description.setAlignment(Qt.AlignLeft)  # Căn trái nội dung
+        # Thiết lập khoảng cách dòng (line spacing) là 2px
+        description.document().setDefaultStyleSheet("""
+            p {
+                margin-top: 2px;
+                margin-bottom: 2px;
+            }
+        """)
+        description.setText(
+            f'{formatted_default_message}')  # Mặc định là version mới nhất với message từ file
+        bottom_layout.addWidget(description)
+
+        home_layout.addWidget(bottom_frame)
+
+        # Phương thức để lấy message từ file .txt trong thư mục release_notes
+
+    def get_message_for_version(self, version, path):
+        try:
+            file_path = os.path.join(path, f"{version}.txt")
+            if os.path.exists(file_path):
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return f.read().strip()
+            else:
+                self.logger.warning(f"File {version}.txt not found in release_notes directory.")
+                return "No message available"
+        except Exception as e:
+            self.logger.error(f"Error reading file {version}.txt: {str(e)}")
+            return "Error reading message"
+
+    # Phương thức để định dạng message với icon ⚓ ở đầu mỗi dòng và khoảng cách
+    def format_message(self, message):
+        if not message:
+            return ""
+        # Chia message thành các dòng
+        lines = message.split('\n')
+        # Thêm icon ⚓ ở đầu mỗi dòng không trống và giữ nguyên dòng trống
+        formatted_lines = []
+        for line in lines:
+            if line.strip():
+                formatted_lines.append(f"⚓ {line.strip()}")
+            else:
+                formatted_lines.append("")  # Giữ dòng trống
+        return '\n'.join(formatted_lines)
 
 
 if __name__ == "__main__":
