@@ -1,0 +1,9 @@
+Big update GUI for coding, replace with a new GUI base on template Maersk.
+Handling task in dropdown list is replaced with left side bar and right side bar.
+Replace the library tkinter to PyQt5 for adding Color Hex, Frame, Spacing, Font, Border, Animation, Transaction, Picture in GUI.
+Split task to 3 main functions by Website, Desktop app and Arbitarty.
+Textbox logger handling is shortern with fully data, log, bug, time.
+Adding Home Page with 4 button Version/Bug/Dev/Team when first time handle with app.
+Reupdate logo from Automation Committe to Logo Bespoke Team in the header.
+Fix size the window when first time open app, in the center of window and custom the title bar of app with 3 button: Close, Minimize and Resize
+Adding animation hover when click mouse to each button Perform, Pause and Reset.

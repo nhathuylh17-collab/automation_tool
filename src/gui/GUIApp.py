@@ -758,10 +758,15 @@ class GUIApp(QMainWindow):
 
     def handle_perform_button(self):
         """Xử lý khi nút 'Perform' được nhấn."""
-        if self.automated_task and self.automated_task.is_alive():
-            QMessageBox.information(self, "Task Running", "Please terminate the current task before run a new one")
+        if not self.current_task_name:
+            self.logger.error("No task selected. Please select a task before performing.")
             return
 
+        if self.automated_task and self.automated_task.is_alive():
+            QMessageBox.information(self, "Task Running", "Please terminate the current task before running a new one")
+            return
+
+        # Tạo hoặc tải lại task nếu chưa có
         if not self.automated_task:
             self.automated_task = create_task_instance(self.current_task_settings, self.current_task_name,
                                                        lambda: self.setup_custom_logger())
@@ -769,9 +774,15 @@ class GUIApp(QMainWindow):
         self.progress_bar.setValue(0)
         self.progress_bar.setFormat(f"{type(self.automated_task).__name__} 0%")
 
+        # Kiểm tra và đảm bảo thread cũ (nếu có) đã kết thúc
+        if hasattr(self, 'task_thread') and self.task_thread.isRunning():
+            self.logger.warning("Waiting for previous task thread to finish...")
+            self.task_thread.wait()  # Chờ thread cũ kết thúc trước khi tạo thread mới
+
         # Chạy task trong thread riêng
-        self.task_thread = TaskThread(self.automated_task, lambda: self.setup_custom_logger())
+        self.task_thread = TaskThread(self.automated_task, lambda: None)  # Không gọi lại setup_logger
         self.task_thread.progress_updated.connect(self.update_progress)
+        self.task_thread.finished.connect(lambda: self.on_task_finished())  # Kết nối tín hiệu khi thread kết thúc
         self.task_thread.start()
 
     def handle_pause_button(self):
@@ -790,39 +801,35 @@ class GUIApp(QMainWindow):
 
     def handle_reset_button(self):
         """Xử lý khi nút 'Reset' được nhấn."""
-        # Kiểm tra nếu chưa có task nào được chạy hoặc chưa chọn task
-        if not self.automated_task or not self.current_task_name:
+        if not self.current_task_name:
             self.logger.info("No task is running or selected. Reset action skipped.")
-            return  # Không làm gì nếu chưa có task hoặc chưa chọn task
-
-        # Nếu có task nhưng chưa chạy (chỉ chọn task), reset về trạng thái ban đầu
-        if self.automated_task and not self.automated_task.is_alive():
-            self.logger.info(f"Resetting selected task: {self.current_task_name}")
-            self.automated_task = None
-            self.current_task_name = None
-            self.current_task_settings = {}
-            self.progress_bar.setValue(0)
-            self.progress_bar.setFormat("None 0%")
-            if self.is_task_currently_pause:
-                self.pause_button.setText("Pause")
-                self.is_task_currently_pause = False
             return
 
-        # Nếu task đang chạy, terminate nó
+        # Nếu có task đang chạy, terminate nó
         if self.automated_task and self.automated_task.is_alive():
             self.logger.info(f"Terminating running task: {self.current_task_name}")
             self.automated_task.terminate()
 
-        # Reset các trạng thái sau khi terminate
+        # Chờ thread kết thúc nếu có
+        if hasattr(self, 'task_thread') and self.task_thread.isRunning():
+            self.logger.info("Waiting for task thread to finish before reset...")
+            self.task_thread.wait()  # Chờ thread kết thúc trước khi reset
+
+        # Reset các trạng thái nhưng giữ lại current_task_name và current_task_settings
         if self.is_task_currently_pause:
             self.pause_button.setText("Pause")
             self.is_task_currently_pause = False
 
-        self.automated_task = None
-        self.current_task_name = None
-        self.current_task_settings = {}
+        self.automated_task = None  # Chỉ reset instance task, giữ lại thông tin task
         self.progress_bar.setValue(0)
         self.progress_bar.setFormat("None 0%")
+        self.logger.info('Reset task {}'.format(self.current_task_name))
+
+    def on_task_finished(self):
+        """Xử lý khi thread task kết thúc."""
+        if self.is_task_currently_pause:
+            self.pause_button.setText("Pause")
+            self.is_task_currently_pause = False
 
     def update_progress(self, percent: float, task_name: str):
         """Cập nhật tiến trình của task trên progress bar."""
@@ -865,7 +872,7 @@ class GUIApp(QMainWindow):
         # Thêm khung chứa 4 ô ngang (Version, Bug, Dev, Team) dưới dạng button lớn
         top_frame = QFrame()
         top_frame.setStyleSheet(
-            "background-color: #FFFFFF; border: 0px solid #F0F0F0; border-radius: 5px; padding: 10px;")
+            "background-color: #FFFFFF; border: 0px solid #F0F0F0; border-radius: 5px; padding: 0px;")
         top_layout = QHBoxLayout(top_frame)
         top_layout.setSpacing(10)
 
@@ -905,7 +912,7 @@ class GUIApp(QMainWindow):
         # Định dạng message với icon ⚓
         formatted_default_message = self.format_message(default_message)
 
-        # Các ô ngang (Version, Bug, Dev, Team) dưới dạng button lớn
+        # Các ô ngang (Version, Bug, Dev, Team) dưới dạng button lớn với tiêu đề
         fields = [
             ("Version", versions),  # Version sẽ là dropdown list dưới dạng button lớn
             ("Bug", "abc"),
@@ -914,6 +921,17 @@ class GUIApp(QMainWindow):
         ]
 
         for title, value in fields:
+            # Tạo một khung nhỏ (QFrame) để chứa tiêu đề và nội dung (button hoặc dropdown)
+            field_frame = QFrame()
+            field_layout = QVBoxLayout(field_frame)
+            field_layout.setSpacing(5)  # Khoảng cách giữa tiêu đề và nội dung
+
+            # Thêm tiêu đề (label) cho mỗi field
+            title_label = QLabel(title)
+            title_label.setFont(QFont("Maersk Headline", 11))
+            title_label.setAlignment(Qt.AlignCenter)  # Căn giữa tiêu đề
+            title_label.setStyleSheet("color: #003E62;")  # Màu giống với button
+
             if title == "Version":
                 # Tạo dropdown list cho Version dưới dạng button lớn
                 version_combo = QComboBox()
@@ -934,7 +952,6 @@ class GUIApp(QMainWindow):
                         border: 0px solid #42B0D5;
                         color: #FFFFFF;
                         content: "▼";
-                        
                     }}
                     QComboBox::drop-down {{
                         border: none;
@@ -957,7 +974,8 @@ class GUIApp(QMainWindow):
                     description.setText(f'{formatted_message}')
 
                 version_combo.currentIndexChanged.connect(on_version_changed)
-                top_layout.addWidget(version_combo)
+                field_layout.addWidget(title_label)
+                field_layout.addWidget(version_combo)
             else:
                 # Tạo button lớn cho Bug, Dev, Team
                 button = QPushButton(value)
@@ -980,14 +998,18 @@ class GUIApp(QMainWindow):
                     }}
                 """)
                 button.clicked.connect(lambda checked, t=title, v=value: self.logger.info(f"Clicked {t}: {v}"))
-                top_layout.addWidget(button)
+                field_layout.addWidget(title_label)
+                field_layout.addWidget(button)
+
+            # Thêm khung chứa field vào layout chính
+            top_layout.addWidget(field_frame)
 
         home_layout.addWidget(top_frame)
 
         # Thêm khung lớn bên dưới chứa text (mô tả message từ file .txt)
         bottom_frame = QFrame()
         bottom_frame.setStyleSheet(
-            "background-color: #FFFFFF; border: 0px solid #D4D4D4; border-radius: 5px; padding: 5px 5px 5px 10px; margin-top: 5px;")
+            "background-color: #FFFFFF; border: 0px solid #D4D4D4; border-radius: 5px; padding: 5px 5px 5px 10px; margin-top: 0px;")
         bottom_layout = QVBoxLayout(bottom_frame)
         bottom_layout.setAlignment(Qt.AlignLeft)  # Căn trái toàn bộ bottom_frame
 
@@ -1008,8 +1030,6 @@ class GUIApp(QMainWindow):
         bottom_layout.addWidget(description)
 
         home_layout.addWidget(bottom_frame)
-
-        # Phương thức để lấy message từ file .txt trong thư mục release_notes
 
     def get_message_for_version(self, version, path):
         try:

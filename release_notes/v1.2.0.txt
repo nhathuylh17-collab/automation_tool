@@ -1,0 +1,2 @@
+Spir fix bug cannot update fully shipment in OPS(Equipment) + 2 Task below with ticket GCSS Spir.
+Trying to close GCSS_SPIR by correct way, task to capture from 2 to 3

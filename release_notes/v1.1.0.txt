@@ -1,0 +1,2 @@
+Commit for Inno setup not use Minionguyjpro
+Inno setup run in powershell
