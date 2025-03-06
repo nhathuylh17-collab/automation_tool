@@ -670,6 +670,7 @@ class GUIApp(QMainWindow):
 
     def render_task_fields(self, task_name: str):
         """Hiển thị các field input cho task được chọn."""
+        self.clear_settings_layout()
         # Xóa nội dung cũ trong settings layout
         for i in reversed(range(self.settings_layout.count())):
             self.settings_layout.itemAt(i).widget().setParent(None)
@@ -868,6 +869,8 @@ class GUIApp(QMainWindow):
 
     def handle_homepage(self, menu: str):
         """Xử lý khi nhấn nút HomePage, hiển thị giao diện mới với dropdown cho version từ thư mục release_notes."""
+        self.clear_settings_layout()
+
         # Xóa nội dung cũ trong settings layout và ẩn các nút task con
         for i in reversed(range(self.settings_layout.count())):
             self.settings_layout.itemAt(i).widget().setParent(None)
@@ -1114,21 +1117,13 @@ class GUIApp(QMainWindow):
         return '\n'.join(formatted_lines)
 
     def handle_settings(self):
+        self.clear_settings_layout()
+
         # Khởi tạo COM object cho win32com
         pythoncom.CoInitialize()
 
-        # Xóa nội dung hiện tại trong settings layout
-        while self.settings_layout.count():
-            item = self.settings_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.deleteLater()
-                self.logger.debug(f"Deleted widget from settings_layout")
-
-        # Làm sạch tham chiếu đến account_tree_widget nếu có
-        if hasattr(self, 'account_tree_widget'):
-            self.account_tree_widget.deleteLater()
-            del self.account_tree_widget
+        # Làm sạch settings_layout
+        self.clear_settings_layout()
 
         # Đặt trạng thái không có tác vụ
         self.current_task_name = None
@@ -1409,6 +1404,14 @@ class GUIApp(QMainWindow):
             if folder.Folders.Count > 0:
                 self._populate_folders(folder.Folders, folder_item)
 
+    def _populate_folders(self, folders, parent_item):
+        """Đệ quy để điền các thư mục từ Outlook vào QTreeWidget."""
+        for folder in folders:
+            folder_item = QTreeWidgetItem(parent_item, [folder.Name])
+            # Đệ quy để điền các thư mục con
+            if folder.Folders.Count > 0:
+                self._populate_folders(folder.Folders, folder_item)
+
     def load_general_settings(self):
         setting_file = os.path.join(PathResolvingService.get_instance().get_input_dir(), 'general.properties')
         if not os.path.exists(setting_file):
@@ -1453,6 +1456,21 @@ class GUIApp(QMainWindow):
             self.perform_button.setDisabled(True)
             self.reset_button.setDisabled(True)
             self.pause_button.setDisabled(True)
+
+    def clear_settings_layout(self):
+        """Làm sạch self.settings_layout và các tham chiếu liên quan."""
+        self.logger.info("Clearing settings_layout")
+        while self.settings_layout.count():
+            item = self.settings_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+                self.logger.debug(f"Deleted widget from settings_layout")
+
+        # Làm sạch tham chiếu đến account_tree_widget nếu có
+        if hasattr(self, 'account_tree_widget'):
+            self.account_tree_widget.deleteLater()
+            del self.account_tree_widget
 
 
 if __name__ == "__main__":
