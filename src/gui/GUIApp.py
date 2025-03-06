@@ -1,13 +1,16 @@
+import getpass
 import os
 import sys
 from typing import Dict, Optional
 
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
+import pythoncom
+import win32com.client
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QPropertyAnimation, QEasingCurve, QRect
 from PyQt5.QtGui import QFont, QPixmap
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-                             QTextEdit, QProgressBar, QFrame, QMessageBox, QScrollArea, QSplitter, QCheckBox, QComboBox)
+                             QTextEdit, QProgressBar, QFrame, QMessageBox, QScrollArea, QSplitter, QCheckBox, QComboBox,
+                             QGraphicsDropShadowEffect, QLineEdit, QTabWidget, QTreeWidgetItem, QTreeWidget, QStyle)
 
-# Import các module cần thiết từ dự án
 from src.common.FileUtil import load_key_value_from_file_properties, persist_settings_to_file
 from src.common.ReflectionUtil import create_task_instance
 from src.common.ThreadLocalLogger import get_current_logger
@@ -101,7 +104,7 @@ class GUIApp(QMainWindow):
         self.task_buttons = {}  # Lưu tất cả các nút task theo menu, dạng {menu: [task_buttons]}
 
         # Định nghĩa sidebar_menus như thuộc tính của class
-        self.sidebar_menus = ["HomePage", "Website", "Desktop App", "Arbitrary"]
+        self.sidebar_menus = ["HomePage", "Website", "Desktop App", "Arbitrary", "Setting"]
 
         # Cấu hình cửa sổ chính
         self.setWindowTitle("Maersk GSC VN Automation Toolkit")
@@ -334,6 +337,9 @@ class GUIApp(QMainWindow):
                 btn.clicked.connect(lambda checked, m=menu: self.toggle_task_list(m, {"Website": "web",
                                                                                       "Desktop App": "desktop",
                                                                                       "Arbitrary": "arbitrary"}[m]))
+            elif menu == "Setting":
+                btn.clicked.connect(self.handle_settings)
+
             self.sidebar_layout.addWidget(btn)
 
         left_layout.addWidget(scroll_area)
@@ -594,19 +600,6 @@ class GUIApp(QMainWindow):
         persist_settings_to_file(self.current_task_name, self.current_task_settings)
         event.accept()
 
-    # def handle_homepage(self, menu: str):
-    #     """Xử lý khi nhấn nút HomePage."""
-    #     # Xóa nội dung cũ trong settings layout và ẩn các nút task con
-    #     for i in reversed(range(self.settings_layout.count())):
-    #         self.settings_layout.itemAt(i).widget().setParent(None)
-    #     for menu_tasks in self.task_buttons.values():
-    #         for btn in menu_tasks:
-    #             btn.setVisible(False)
-    #     # self.logger.info("Displaying HomePage.")
-    #     self.current_task_name = None
-    #     self.automated_task = None
-    #     self.current_task_settings = {}
-
     def toggle_task_list(self, menu: str, dir_name: str):
         """Hiển thị hoặc ẩn danh sách các task từ thư mục riêng cho từng menu, giữ các menu khác nguyên, đảm bảo chỉ hiển thị tasks của thư mục tương ứng, và hỗ trợ toggle (hiển thị/ẩn) khi click lại nút."""
         # Debug để kiểm tra thư mục và file
@@ -730,27 +723,38 @@ class GUIApp(QMainWindow):
             if setting == 'use.GUI' and task_menu != "Website":
                 continue
 
-            # Tạo label và input cho mỗi thiết lập, loại bỏ hoàn toàn border để phẳng hơn
+            # Tạo frame chứa toàn bộ setting (label, input, và đường kẻ)
             setting_frame = QFrame()
-            setting_frame.setStyleSheet("background-color: #FFFFFF")  # Loại bỏ border, giữ nền trắng
+            setting_frame.setStyleSheet("background-color: #FFFFFF")  # Nền trắng, không border
             setting_layout = QHBoxLayout(setting_frame)
-            setting_layout.setContentsMargins(0, 0, 0, 0)  # Loại bỏ margin để phẳng hơn
+            setting_layout.setContentsMargins(0, 0, 0, 0)  # Loại bỏ margin
             setting_layout.setSpacing(2)  # Khoảng cách nhỏ giữa label và input
 
+            # Tạo label
             label = QLabel(f"{setting}:")
             label.setFont(QFont("Maersk Headline", 10))
             label.setStyleSheet("color: #363636;")
             setting_layout.addWidget(label)
 
+            # Tạo component input
             from src.gui.UIComponentFactory import UIComponentFactory
             component = UIComponentFactory.get_instance(self).create_component(setting, initial_value, setting_frame)
             if not isinstance(component, QCheckBox):
-                component.setStyleSheet("border: none; background-color: #FFFFFF; padding: 2px;")
+                component.setStyleSheet(
+                    "border-bottom: 0.5px solid #D4D4D4; border-radius: 0;background-color: #FFFFFF; padding: 2px; ")
             setting_layout.addWidget(component)
+
+            # Thêm đường kẻ đỏ bên dưới input
+            underline = QFrame()
+            underline.setFrameShape(QFrame.HLine)  # Tạo đường ngang
+            underline.setFrameShadow(QFrame.Sunken)  # Đường nét đơn giản
+            underline.setStyleSheet("background-color: #FF0000; height: 2px;")
+            setting_layout.addWidget(underline)
 
             self.settings_layout.addWidget(setting_frame)
 
         self.automated_task.settings = self.current_task_settings
+        self.update_button_states()
 
     def update_setting(self, setting: str, value: str):
         """Cập nhật giá trị của một thiết lập cụ thể."""
@@ -843,6 +847,25 @@ class GUIApp(QMainWindow):
         else:
             self.showMaximized()  # Chuyển sang chế độ toàn màn hình
 
+    def scale_widget(self, widget, scale_factor):
+        """Thực hiện animation để mở rộng hoặc thu nhỏ widget với hiệu ứng rõ ràng hơn."""
+        current_rect = widget.geometry()
+        new_width = current_rect.width() * scale_factor
+        new_height = current_rect.height() * scale_factor
+        new_x = current_rect.x() - (new_width - current_rect.width()) / 2
+        new_y = current_rect.y() - (new_height - current_rect.height()) / 2
+
+        # Debug: In ra kích thước trước và sau khi scale
+        self.logger.debug(f"Scaling widget {widget.objectName() if widget.objectName() else 'unnamed'} "
+                          f"from {current_rect} to {QRect(int(new_x), int(new_y), int(new_width), int(new_height))}")
+
+        animation = QPropertyAnimation(widget, b"geometry")
+        animation.setDuration(300)  # Tăng thời gian để thấy rõ hơn
+        animation.setEasingCurve(QEasingCurve.OutQuad)  # Hiệu ứng mượt mà
+        animation.setStartValue(current_rect)
+        animation.setEndValue(QRect(int(new_x), int(new_y), int(new_width), int(new_height)))
+        animation.start()
+
     def handle_homepage(self, menu: str):
         """Xử lý khi nhấn nút HomePage, hiển thị giao diện mới với dropdown cho version từ thư mục release_notes."""
         # Xóa nội dung cũ trong settings layout và ẩn các nút task con
@@ -912,7 +935,7 @@ class GUIApp(QMainWindow):
         # Định dạng message với icon ⚓
         formatted_default_message = self.format_message(default_message)
 
-        # Các ô ngang (Version, Bug, Dev, Team) dưới dạng button lớn với tiêu đề
+        # Các ô ngang (Version, Bug, Dev, Team) dưới dạng button lớn với tiêu đề và animation
         fields = [
             ("Version", versions),  # Version sẽ là dropdown list dưới dạng button lớn
             ("Bug", "abc"),
@@ -930,7 +953,7 @@ class GUIApp(QMainWindow):
             title_label = QLabel(title)
             title_label.setFont(QFont("Maersk Headline", 11))
             title_label.setAlignment(Qt.AlignCenter)  # Căn giữa tiêu đề
-            title_label.setStyleSheet("color: #003E62;")  # Màu giống với button
+            title_label.setStyleSheet("color: #003E62; text-align: center;")  # Màu giống với button
 
             if title == "Version":
                 # Tạo dropdown list cho Version dưới dạng button lớn
@@ -945,6 +968,8 @@ class GUIApp(QMainWindow):
                         border-radius: 5px;
                         min-width: 150px;  /* Đảm bảo kích thước đủ lớn cho ô */
                         min-height: 80px;  /* Đảm bảo chiều cao phù hợp */
+                        max-width: 300px;  /* Loại bỏ giới hạn max-width để cho phép mở rộng */
+                        max-height: 160px; /* Loại bỏ giới hạn max-height để cho phép mở rộng */
                         text-align: center;  /* Căn giữa nội dung trong dropdown */
                     }}
                     QComboBox:hover {{
@@ -955,7 +980,7 @@ class GUIApp(QMainWindow):
                     }}
                     QComboBox::drop-down {{
                         border: none;
-                        width: 20px;  /* Điều chỉnh kích thước mũi tên dropdown */
+                        width: 0px;  /* Điều chỉnh kích thước mũi tên dropdown */
                     }}
                     QComboBox QAbstractItemView {{
                         background-color: #FFFFFF;
@@ -966,6 +991,18 @@ class GUIApp(QMainWindow):
                 version_combo.addItems(value)  # Thêm các versions vào dropdown
                 version_combo.setCurrentText(latest_version)  # Mặc định chọn version mới nhất
 
+                # Thêm hiệu ứng đổ bóng
+                shadow = QGraphicsDropShadowEffect(version_combo)
+                shadow.setBlurRadius(15)  # Bán kính mờ của bóng
+                shadow.setXOffset(0)  # Dịch chuyển ngang
+                shadow.setYOffset(5)  # Dịch chuyển dọc
+                shadow.setColor(Qt.gray)  # Màu của bóng
+                version_combo.setGraphicsEffect(shadow)
+
+                # Thêm animation khi hover (mở rộng nhiều hơn, scale_factor = 2.0)
+                version_combo.enterEvent = lambda event: self.scale_widget(version_combo, scale_factor=2.0)
+                version_combo.leaveEvent = lambda event: self.scale_widget(version_combo, scale_factor=1.0)
+
                 # Xử lý khi chọn version từ dropdown
                 def on_version_changed(index):
                     selected_version = version_combo.itemText(index)
@@ -974,6 +1011,7 @@ class GUIApp(QMainWindow):
                     description.setText(f'{formatted_message}')
 
                 version_combo.currentIndexChanged.connect(on_version_changed)
+                version_combo.setObjectName(f"VersionCombo_{title}")  # Thêm objectName để debug
                 field_layout.addWidget(title_label)
                 field_layout.addWidget(version_combo)
             else:
@@ -987,8 +1025,10 @@ class GUIApp(QMainWindow):
                         padding: 10px 15px;
                         border: 1px solid #D4D4D4;
                         border-radius: 5px;
-                        min-width: 150px;  /* Đảm bảo kích thước đủ lớn cho từng ô */
+                        min-width: 150px;  /* Đảm bảo kích thước đủ lớn cho ô */
                         min-height: 80px;  /* Đảm bảo chiều cao phù hợp */
+                        max-width: 300px;  /* Loại bỏ giới hạn max-width để cho phép mở rộng */
+                        max-height: 160px; /* Loại bỏ giới hạn max-height để cho phép mở rộng */
                         text-align: center;  /* Căn giữa nội dung trong button */
                     }}
                     QPushButton:hover {{
@@ -997,7 +1037,20 @@ class GUIApp(QMainWindow):
                         color: #FFFFFF;
                     }}
                 """)
+                # Thêm hiệu ứng đổ bóng
+                shadow = QGraphicsDropShadowEffect(button)
+                shadow.setBlurRadius(15)  # Bán kính mờ của bóng
+                shadow.setXOffset(0)  # Dịch chuyển ngang
+                shadow.setYOffset(5)  # Dịch chuyển dọc
+                shadow.setColor(Qt.gray)  # Màu của bóng
+                button.setGraphicsEffect(shadow)
+
+                # Thêm animation khi hover (mở rộng nhiều hơn, scale_factor = 2.0)
+                button.enterEvent = lambda event: self.scale_widget(button, scale_factor=2.0)
+                button.leaveEvent = lambda event: self.scale_widget(button, scale_factor=1.0)
+
                 button.clicked.connect(lambda checked, t=title, v=value: self.logger.info(f"Clicked {t}: {v}"))
+                button.setObjectName(f"Button_{title}")  # Thêm objectName để debug
                 field_layout.addWidget(title_label)
                 field_layout.addWidget(button)
 
@@ -1015,7 +1068,8 @@ class GUIApp(QMainWindow):
 
         description = QTextEdit()  # Sử dụng QTextEdit để kiểm soát định dạng tốt hơn
         description.setFont(QFont("Maersk Text", 10))
-        description.setStyleSheet("color: #6A6A6A; background-color: #FFFFFF; border: none; padding: 5px;")
+        description.setStyleSheet(
+            "color: #6A6A6A; background-color: #FFFFFF; border-left: none; padding: 5px;")
         description.setReadOnly(True)  # Không cho phép chỉnh sửa
         description.setAlignment(Qt.AlignLeft)  # Căn trái nội dung
         # Thiết lập khoảng cách dòng (line spacing) là 2px
@@ -1059,10 +1113,351 @@ class GUIApp(QMainWindow):
                 formatted_lines.append("")  # Giữ dòng trống
         return '\n'.join(formatted_lines)
 
+    def handle_settings(self):
+        # Khởi tạo COM object cho win32com
+        pythoncom.CoInitialize()
+
+        # Xóa nội dung hiện tại trong settings layout
+        while self.settings_layout.count():
+            item = self.settings_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+                self.logger.debug(f"Deleted widget from settings_layout")
+
+        # Làm sạch tham chiếu đến account_tree_widget nếu có
+        if hasattr(self, 'account_tree_widget'):
+            self.account_tree_widget.deleteLater()
+            del self.account_tree_widget
+
+        # Đặt trạng thái không có tác vụ
+        self.current_task_name = None
+        self.automated_task = None
+        self.current_task_settings = {}
+
+        # Cập nhật trạng thái nút để ẩn các thành phần
+        self.update_button_states()
+
+        # Tạo QTabWidget để chứa 5 thẻ
+        tab_widget = QTabWidget()
+        tab_widget.setFont(QFont("Maersk Headline", 10))
+        tab_widget.setStyleSheet("""
+            QTabWidget::pane {
+                border: 0px solid #D4D4D4;
+                background-color: #FFFFFF;
+                border-radius: 5px;
+                color: #363636;
+            }
+            QTabBar::tab {
+                background-color: #F0F0F0;
+                color: #363636;
+                padding: 8px 15px;
+                border: 1px solid #D4D4D4;
+                border-bottom: none;
+                border-top-left-radius: 5px;
+                border-top-right-radius: 5px;
+                min-width: 100px;
+            }
+            QTabBar::tab:selected {
+                background-color: #FFFFFF;
+                color: #003E62;
+                font-weight: bold;
+            }
+            QTabBar::tab:hover:!selected {
+                background-color: #E0E0E0;
+            }
+        """)
+
+        # Thẻ 1: Account - Hiển thị danh sách tài khoản và cây thư mục
+        account_tab = QWidget()
+        account_layout = QVBoxLayout(account_tab)
+
+        # Tiêu đề "Account List"
+        account_list_label = QLabel("Account List")
+        account_list_label.setFont(QFont("Maersk Headline"))
+        account_list_label.setStyleSheet("color: #141414; font-size: 14px; font-weight: bold;")
+        account_layout.addWidget(account_list_label)
+
+        # Danh sách tài khoản (lấy từ file .ost)
+        account_list_frame = QFrame()
+        account_list_frame.setFont(QFont("Maersk Headline", 10))
+        account_list_layout = QHBoxLayout(account_list_frame)
+        account_list_layout.setSpacing(15)
+
+        # Lấy danh sách email từ file .ost
+        outlook_path = os.path.join("C:\\Users", getpass.getuser(), "AppData", "Local", "Microsoft", "Outlook")
+        emails = []
+        try:
+            if os.path.exists(outlook_path):
+                for filename in os.listdir(outlook_path):
+                    if filename.lower().endswith(".ost"):
+                        account_name = filename.replace(".ost", "").replace(".OST", "")
+                        emails.append(account_name)
+            else:
+                self.logger.warning(f"Outlook directory not found at {outlook_path}")
+                emails = ["Cannot retrieve email"]
+        except Exception as e:
+            self.logger.error(f"Error accessing Outlook directory: {str(e)}")
+            emails = ["Cannot retrieve email"]
+
+        # Thêm các email vào giao diện
+        for email in emails:
+            account_button = QPushButton(email)
+            account_button.setFont(QFont("Maersk Headline", 10))
+            account_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #42B0D5;
+                    color: #FFFFFF;
+                    padding: 5px 10px;
+                    border: none;
+                    border-radius: 5px;
+                    min-width: 150px;
+                    min-height: 20px;
+                    text-align: center;
+                }
+                QPushButton:hover {
+                    background-color: #003E62;
+                    color: #FFFFFF;
+                }
+            """)
+            account_list_layout.addWidget(account_button)
+        account_list_layout.addStretch()
+        account_layout.addWidget(account_list_frame)
+
+        # Tiêu đề "Folder Tree"
+        folder_tree_label = QLabel("Folder Tree")
+        folder_tree_label.setFont(QFont("Maersk Headline"))
+        folder_tree_label.setStyleSheet("color: #000000; font-size: 14px; font-weight: bold;")
+        account_layout.addWidget(folder_tree_label)
+
+        # Tạo QTreeWidget để hiển thị cây thư mục
+        self.account_tree_widget = QTreeWidget()
+        self.account_tree_widget.setHeaderLabels([""])
+        self.account_tree_widget.setFont(QFont("Maersk Headline", 10))
+        self.account_tree_widget.setStyleSheet("""
+            QTreeWidget {
+                background-color: #FFFFFF;
+                border: none;
+                border-radius: 5px;
+                padding: 5px;
+                min-height: 500px;
+            }
+            QTreeWidget::item {
+                padding: 3px;
+            }
+            QTreeWidget::item:hover {
+                background-color: #F0F0F0;
+                color: #141414;
+            }
+        """)
+
+        # Lấy icon hệ thống
+        style = self.style()
+        folder_icon = style.standardIcon(QStyle.SP_DirIcon)
+
+        # Thêm các tài khoản vào cây thư mục ban đầu
+        for email in emails:
+            email_item = QTreeWidgetItem(self.account_tree_widget, [email])
+            email_item.setIcon(0, folder_icon)
+
+        # Logic điền thư mục con khi mở rộng
+        def populate_folders_on_expand(item):
+            if item.childCount() == 0:  # Chỉ điền khi chưa có thư mục con
+                if item.parent() is None:  # Là tài khoản
+                    email = item.text(0)
+                    if email in emails:
+                        self._populate_folders_from_outlook(email, item)
+
+        # Logic mở rộng khi nhấp vào item
+        def on_item_clicked(item, column):
+            if not item.isExpanded():
+                item.setExpanded(True)
+                populate_folders_on_expand(item)
+            else:
+                item.setExpanded(False)
+
+        # Kết nối sự kiện
+        self.account_tree_widget.itemExpanded.connect(populate_folders_on_expand)
+        self.account_tree_widget.itemClicked.connect(on_item_clicked)
+
+        account_layout.addWidget(self.account_tree_widget)
+        account_layout.addStretch()
+        tab_widget.addTab(account_tab, "Account")
+
+        # Thẻ 2: Icon
+        icon_tab = QWidget()
+        icon_layout = QVBoxLayout(icon_tab)
+        icon_layout.addWidget(QLabel("Icon settings will go here"))
+        icon_layout.addStretch()
+        tab_widget.addTab(icon_tab, "Icon")
+
+        # Thẻ 3: Update
+        update_tab = QWidget()
+        update_layout = QVBoxLayout(update_tab)
+        update_layout.addWidget(QLabel("Update settings will go here"))
+        update_layout.addStretch()
+        tab_widget.addTab(update_tab, "Update")
+
+        # Thẻ 4: Check MMD
+        check_mmd_tab = QWidget()
+        check_mmd_layout = QVBoxLayout(check_mmd_tab)
+        check_mmd_layout.addWidget(QLabel("Check MMD settings will go here"))
+        check_mmd_layout.addStretch()
+        tab_widget.addTab(check_mmd_tab, "Check MMD")
+
+        # Thẻ 5: Draft
+        draft_tab = QWidget()
+        draft_layout = QVBoxLayout(draft_tab)
+        general_settings = self.load_general_settings()
+        default_path_frame = QFrame()
+        default_path_layout = QHBoxLayout(default_path_frame)
+        default_path_label = QLabel("Default Path: ")
+        default_path_label.setStyleSheet("color: #363636;")
+        default_path_layout.addWidget(default_path_label)
+        default_path_input = QLineEdit()
+        default_path_input.setStyleSheet(
+            "border-bottom: 0.5px solid #D4D4D4; border-radius: 0; background-color: #FFFFFF; padding: 2px;")
+        default_path_input.setPlaceholderText("Enter default path")
+        default_path_input.setObjectName("default_path_input")
+        default_path_input.setText(general_settings.get('default_path', ''))
+        default_path_layout.addWidget(default_path_input)
+        default_path_underline = QFrame()
+        default_path_underline.setFrameShape(QFrame.HLine)
+        default_path_underline.setFrameShadow(QFrame.Sunken)
+        default_path_underline.setStyleSheet("background-color: #FF0000; height: 2px;")
+        default_path_layout.addWidget(default_path_underline)
+        draft_layout.addWidget(default_path_frame)
+        log_level_frame = QFrame()
+        log_level_layout = QHBoxLayout(log_level_frame)
+        log_level_label = QLabel("Log Level: ")
+        log_level_label.setStyleSheet("color: #363636;")
+        log_level_layout.addWidget(log_level_label)
+        log_level_combo = QComboBox()
+        log_level_combo.addItems(["INFO", "DEBUG", "WARNING", "ERROR"])
+        log_level_combo.setCurrentText(general_settings.get('log_level', 'INFO'))
+        log_level_combo.setObjectName("log_level_combo")
+        log_level_layout.addWidget(log_level_combo)
+        log_level_underline = QFrame()
+        log_level_underline.setFrameShape(QFrame.HLine)
+        log_level_underline.setFrameShadow(QFrame.Sunken)
+        log_level_underline.setStyleSheet("background-color: #FF0000; height: 2px;")
+        log_level_layout.addWidget(log_level_underline)
+        draft_layout.addWidget(log_level_frame)
+        theme_frame = QFrame()
+        theme_layout = QHBoxLayout(theme_frame)
+        theme_label = QLabel(" Theme: ")
+        theme_label.setStyleSheet("color: #363636;")
+        theme_layout.addWidget(theme_label)
+        theme_combo = QComboBox()
+        theme_combo.addItems(["Light", "Dark"])
+        theme_combo.setCurrentText(general_settings.get('theme', 'Light'))
+        theme_combo.setObjectName("theme_combo")
+        theme_layout.addWidget(theme_combo)
+        theme_underline = QFrame()
+        theme_underline.setFrameShape(QFrame.HLine)
+        theme_underline.setFrameShadow(QFrame.Sunken)
+        theme_underline.setStyleSheet("background-color: #FF0000; height: 2px;")
+        theme_layout.addWidget(theme_underline)
+        draft_layout.addWidget(theme_frame)
+        save_button = QPushButton("Save Settings")
+        save_button.clicked.connect(self.save_general_settings)
+        draft_layout.addWidget(save_button)
+        draft_layout.addStretch()
+        tab_widget.addTab(draft_tab, "Draft")
+
+        # Thêm tab_widget vào settings_layout
+        self.settings_layout.addWidget(tab_widget)
+        self.settings_layout.addStretch()
+
+        # Giải phóng COM object sau khi sử dụng
+        pythoncom.CoUninitialize()
+
+    def _populate_folders_from_outlook(self, email, parent_item):
+        """Lấy cấu trúc thư mục thực từ Outlook cho một tài khoản cụ thể."""
+        try:
+            outlook = win32com.client.Dispatch("Outlook.Application")
+            namespace = outlook.GetNamespace("MAPI")
+            account = None
+            for acc in namespace.Accounts:
+                if acc.SmtpAddress.lower() == email.lower() or acc.DisplayName.lower() == email.lower():
+                    account = acc
+                    break
+
+            if not account:
+                self.logger.warning(f"Account {email} not found in Outlook.")
+                QTreeWidgetItem(parent_item, ["Account not accessible"])
+                return
+
+            # Lấy tất cả thư mục từ tài khoản
+            folders = namespace.Folders.Item(account.DisplayName).Folders
+            self._populate_folders(folders, parent_item)
+
+            # Giải phóng đối tượng COM
+            del folders
+            del namespace
+            del outlook
+
+        except Exception as e:
+            self.logger.error(f"Error accessing Outlook for {email}: {str(e)}")
+            QTreeWidgetItem(parent_item, ["Error loading folders"])
+
+    def _populate_folders(self, folders, parent_item):
+        """Đệ quy để điền các thư mục từ Outlook vào QTreeWidget."""
+        for folder in folders:
+            folder_item = QTreeWidgetItem(parent_item, [folder.Name])
+            # Đệ quy để điền các thư mục con
+            if folder.Folders.Count > 0:
+                self._populate_folders(folder.Folders, folder_item)
+
+    def load_general_settings(self):
+        setting_file = os.path.join(PathResolvingService.get_instance().get_input_dir(), 'general.properties')
+        if not os.path.exists(setting_file):
+            return {}
+        return load_key_value_from_file_properties(setting_file)
+
+    def save_general_settings(self):
+        general_settings = {}
+        default_path_input = self.findChild(QLineEdit, "default_path_input")
+        if default_path_input:
+            general_settings['default_path'] = default_path_input.text()
+        log_level_combo = self.findChild(QComboBox, "log_level_combo")
+        if log_level_combo:
+            general_settings['log_level'] = log_level_combo.currentText()
+        theme_combo = self.findChild(QComboBox, "theme_combo")
+        if theme_combo:
+            general_settings['theme'] = theme_combo.currentText()
+
+        setting_file = os.path.join(PathResolvingService.get_instance().get_input_dir(), 'general.properties')
+        with open(setting_file, 'w') as f:
+            for key, value in general_settings.items():
+                f.write(f"{key}={value}\n")
+        QMessageBox.information(self, "Settings Saved", "General settings have been saved.")
+
+    def update_button_states(self):
+        has_task = self.current_task_name is not None and self.automated_task is not None
+        running_task = has_task and self.automated_task.is_alive() if has_task else False
+
+        # Ẩn hoặc hiện các nút và hộp nhật ký dựa trên trạng thái có tác vụ hay không
+        self.perform_button.setHidden(not has_task)
+        self.reset_button.setHidden(not has_task)
+        self.pause_button.setHidden(not has_task)
+        self.logging_textbox.setHidden(not has_task)
+        self.progress_bar.setHidden(not has_task)
+
+        # Vô hiệu hóa các nút nếu cần khi chúng được hiển thị
+        if has_task:
+            self.perform_button.setDisabled(False)
+            self.reset_button.setDisabled(False)
+            self.pause_button.setDisabled(not running_task)
+        else:
+            self.perform_button.setDisabled(True)
+            self.reset_button.setDisabled(True)
+            self.pause_button.setDisabled(True)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setFont(QFont("Maersk Headline", 10))
+    # app.setFont(QFont("Maersk Headline", 10))
     window = GUIApp()
     window.show()
     sys.exit(app.exec_())
