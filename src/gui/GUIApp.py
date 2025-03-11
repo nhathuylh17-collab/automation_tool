@@ -1,5 +1,6 @@
 import getpass
 import os
+import socket
 import sys
 from typing import Dict, Optional
 
@@ -1296,7 +1297,75 @@ class GUIApp(QMainWindow):
         # Thẻ 4: Check MMD
         check_mmd_tab = QWidget()
         check_mmd_layout = QVBoxLayout(check_mmd_tab)
-        check_mmd_layout.addWidget(QLabel("Check MMD settings will go here"))
+        check_mmd_layout.setAlignment(Qt.AlignCenter)
+        # Lấy computer name
+        computer_name = socket.gethostname()
+
+        # Kiểm tra xem computer name có bắt đầu bằng "MMD" không
+        is_mmd_device = computer_name.startswith("MMD")
+
+        # Tạo biểu tượng cười
+        smiley_label = QLabel()
+        smiley_pixmap = QPixmap("resource/img/smiley.png")
+        if smiley_pixmap.isNull():
+            smiley_label.setText("😊")
+            smiley_font = QFont("Maersk Text", 32)
+            smiley_label.setFont(smiley_font)
+        else:
+            smiley_label.setPixmap(smiley_pixmap.scaled(50, 50, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        smiley_label.setAlignment(Qt.AlignCenter)
+        check_mmd_layout.addWidget(smiley_label)
+
+        # Tạo tiêu đề chính
+        main_message = QLabel(
+            "Great, you are a fortunate Blue Star" if is_mmd_device else "This is a TMD device, no MMD access")
+        main_message.setFont(QFont("Maersk Headline", 15))
+        main_message.setStyleSheet("color: #42B0D5;" if is_mmd_device else "color: #EA5D4B;")
+        main_message.setAlignment(Qt.AlignCenter)
+        check_mmd_layout.addWidget(main_message)
+
+        # Tạo thông tin phụ
+        sub_message = QLineEdit(
+            f"[{computer_name}] is a MMD device." if is_mmd_device else f"[{computer_name}] is not an MMD device.")
+        sub_message.setFont(QFont("Maersk Text", 10))
+        sub_message.setStyleSheet("color: #6A6A6A;")
+        sub_message.setAlignment(Qt.AlignCenter)
+        sub_message.setReadOnly(True)
+        check_mmd_layout.addWidget(sub_message)
+
+        # Tạo nút "Check Detail"
+        check_detail_button = QPushButton("Check Detail")
+        check_detail_button.setFont(QFont("Maersk Headline", 10))
+        check_detail_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #003E62;
+                    color: #FFFFFF;
+                    padding: 8px 15px;
+                    border: none;
+                    border-radius: 5px;
+                    min-width: 120px;
+                }
+                QPushButton:hover {
+                    background-color: #42B0D5;
+                }
+                QPushButton:pressed {
+                    background-color: #1686BD;
+                }
+            """)
+        check_mmd_layout.addWidget(check_detail_button)
+
+        # Thêm khu vực hiển thị chi tiết (ban đầu ẩn đi)
+        self.detail_frame = QFrame()
+        self.detail_frame.setStyleSheet(
+            "background-color: #363636; border: 0px solid #D4D4D4; border-radius: 5px; padding: 3px;")
+        self.detail_layout = QVBoxLayout(self.detail_frame)
+        self.detail_layout.setAlignment(Qt.AlignLeft)
+        self.detail_frame.setVisible(False)  # Ẩn khung chi tiết mặc định
+        check_mmd_layout.addWidget(self.detail_frame)
+
+        # Kết nối nút "Check Detail" với hàm hiển thị chi tiết
+        check_detail_button.clicked.connect(lambda: self.show_mmd_details(computer_name, is_mmd_device))
+
         check_mmd_layout.addStretch()
         tab_widget.addTab(check_mmd_tab, "Check MMD")
 
@@ -1367,6 +1436,93 @@ class GUIApp(QMainWindow):
         # Giải phóng COM object sau khi sử dụng
         pythoncom.CoUninitialize()
 
+    def show_mmd_details(self, computer_name, is_mmd_device):
+        """Hiển thị chi tiết hệ thống bên dưới nút Check Detail."""
+        import platform
+        import psutil
+        import socket
+
+        # Xóa nội dung cũ trong detail_layout
+        while self.detail_layout.count():
+            item = self.detail_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
+        # Thu thập thông tin hệ thống
+        details = []
+
+        # Computer Name
+        details.append(f"Computer Name: {computer_name}")
+
+        # Thêm Status
+        details.append("Status: MMD Access Granted" if is_mmd_device else "Status: No MMD Access (TMD Device)")
+
+        # 32 or 64 bit
+        architecture = "64-bit" if platform.machine().endswith('64') else "32-bit"
+        details.append(f"Architecture: {architecture}")
+
+        # Processor (CPU) Name
+        try:
+            cpu_name = platform.processor() or "Unknown Processor"
+            details.append(f"Processor: {cpu_name}")
+        except Exception as e:
+            details.append(f"Processor: Error retrieving data ({str(e)})")
+
+        # CPU Frequency
+        try:
+            cpu_freq = psutil.cpu_freq()
+            if cpu_freq:
+                details.append(
+                    f"CPU Frequency: Current: {cpu_freq.current:.2f} MHz (Min: {cpu_freq.min:.2f} MHz, Max: {cpu_freq.max:.2f} MHz)")
+            else:
+                details.append("CPU Frequency: Not available")
+        except Exception as e:
+            details.append(f"CPU Frequency: Error retrieving data ({str(e)})")
+
+        # RAM Info
+        try:
+            ram = psutil.virtual_memory()
+            details.append(
+                f"RAM: {ram.percent}% used ({ram.used / (1024 ** 3):.2f} GB used of {ram.total / (1024 ** 3):.2f} GB)")
+        except Exception as e:
+            details.append(f"RAM: Error retrieving data ({str(e)})")
+
+        # C Disk (% used)
+        try:
+            disk_usage = psutil.disk_usage('C:\\')
+            percent_used = disk_usage.percent
+            details.append(
+                f"C Disk: {percent_used}% ({disk_usage.used / (1024 ** 3):.2f} GB used of {disk_usage.total / (1024 ** 3):.2f} GB)")
+        except Exception as e:
+            details.append(f"C Disk: Error retrieving data ({str(e)})")
+
+        # IPv4 và IPv6
+        try:
+            hostname = socket.gethostname()
+            ip_addresses = socket.getaddrinfo(hostname, None)
+            ipv4 = None
+            ipv6 = None
+            for addr in ip_addresses:
+                if addr[0] == socket.AF_INET:  # IPv4
+                    ipv4 = addr[4][0]
+                elif addr[0] == socket.AF_INET6:  # IPv6
+                    ipv6 = addr[4][0]
+            details.append(f"IPv4: {ipv4 if ipv4 else 'Not available'}")
+            details.append(f"IPv6: {ipv6 if ipv6 else 'Not available'}")
+        except Exception as e:
+            details.append(f"IP Address: Error retrieving data ({str(e)})")
+
+        # Hiển thị thông tin trong detail_frame
+        for detail in details:
+            label = QTextEdit(detail)
+            label.setFont(QFont("Maersk Text", 10))
+            label.setStyleSheet("color: #FFFFFF;")
+            self.detail_layout.addWidget(label)
+
+        # Hiển thị khung chi tiết
+        self.detail_frame.setVisible(True)
+
     def _populate_folders_from_outlook(self, email, parent_item):
         """Lấy cấu trúc thư mục thực từ Outlook cho một tài khoản cụ thể."""
         try:
@@ -1395,14 +1551,6 @@ class GUIApp(QMainWindow):
         except Exception as e:
             self.logger.error(f"Error accessing Outlook for {email}: {str(e)}")
             QTreeWidgetItem(parent_item, ["Error loading folders"])
-
-    def _populate_folders(self, folders, parent_item):
-        """Đệ quy để điền các thư mục từ Outlook vào QTreeWidget."""
-        for folder in folders:
-            folder_item = QTreeWidgetItem(parent_item, [folder.Name])
-            # Đệ quy để điền các thư mục con
-            if folder.Folders.Count > 0:
-                self._populate_folders(folder.Folders, folder_item)
 
     def _populate_folders(self, folders, parent_item):
         """Đệ quy để điền các thư mục từ Outlook vào QTreeWidget."""
