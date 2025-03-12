@@ -1,34 +1,47 @@
 # -*- mode: python ; coding: utf-8 -*-
 import platform
 from PyInstaller.utils.hooks import collect_submodules
+
 platform_name = platform.system()
 
-our_datas = [('resource', 'resource'), ('src', 'src'), ('LICENSE', 'LICENSE')]
-our_hidden_imports = [  'selenium.webdriver.chrome',
-                        'selenium.webdriver.support.expected_conditions',
-                        'selenium.webdriver.support.wait',
-                        'requests',
-                        'wget',
-                        'xlwings',
-                        'pdfplumber',
-                        'PyPDF2',
-                        "pyautogui",
-                        'pywinauto'
-                        ]
-
+our_datas = [
+    ('resource', 'resource'),  # Adjust as needed
+    ('LICENSE', '.'),
+]
+our_hidden_imports = [
+    'selenium.webdriver.chrome',
+    'selenium.webdriver.support.expected_conditions',
+    'selenium.webdriver.support.wait',
+    'requests',
+    'wget',
+    'xlwings',
+    'pdfplumber',
+    'PyPDF2',
+    'pyautogui',
+    'pywinauto',
+    'openpyxl',
+    'PyQt5',
+    'PyQt5.QtWidgets',
+    'PyQt5.QtCore',
+    'pywin32',
+    'psutil',
+    'fpdf',
+    'certifi',
+    'xvfbwrapper',
+]
 if platform_name == 'Windows':
     our_hidden_imports.extend(collect_submodules('comtypes'))
 
 a = Analysis(
     ['src/gui/GUIApp.py'],
     pathex=[],
-    binaries=[],
+    binaries=[('/path/to/chromedriver', '.')],  # Add WebDriver path
     datas=our_datas,
     hiddenimports=our_hidden_imports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['tkinter', 'numpy'],  # Optional
     noarchive=False,
     optimize=0,
 )
@@ -47,7 +60,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,
+    console=False,  # Switch to True for debugging
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
