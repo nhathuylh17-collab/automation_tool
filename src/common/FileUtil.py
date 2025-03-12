@@ -37,7 +37,7 @@ def load_key_value_from_file_properties(setting_file: str) -> dict[str, str]:
         raise Exception("The settings file {} is not existed. Please providing it !".format(setting_file))
 
     settings: dict[str, str] = {}
-    logger.info('Start loading settings from file')
+    # logger.info('Start loading settings from file')
 
     with ResourceLock(file_path=setting_file):
 

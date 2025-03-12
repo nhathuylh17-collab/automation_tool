@@ -9,6 +9,8 @@ PyPDF2==3.0.1
 pyautogui==0.9.54
 pywinauto==0.6.8; platform_system=="Windows"
 xvfbwrapper==0.2.9
-fpdf == 1.7.2
+fpdf==1.7.2
 pyinstaller==6.9.0
-PyQt5 == 5.15.11
+PyQt5==5.15.11
+pywin32==309
+psutil==7.0.0

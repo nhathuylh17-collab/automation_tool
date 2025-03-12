@@ -25,7 +25,7 @@ class CustomLogFormatter(logging.Formatter):
         time_part = time.split()[-1]  # Lấy phần "HH:MM:SS"
         module = record.module  # Tên module (ví dụ: "AutomatedTask")
         message = record.message  # Thông điệp log (ví dụ: "Run in headless mode")
-        return f"{time_part}    {module}:   {message}"
+        return f"{time_part}   :   {message}"
 
 
 def setup_textbox_logger(textbox: QTextEdit):

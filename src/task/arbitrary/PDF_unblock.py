@@ -59,12 +59,12 @@ class PDF_unblock(AutomatedTask):
             except PdfError as e:
                 if attempt == self.max_retries:
                     return False, f"PDF error for {os.path.basename(input_path)} after {attempt} attempts: {str(e)}"
-                self.logger.warning(
+                self.logger.debug(
                     f"Attempt {attempt}/{self.max_retries} failed for {os.path.basename(input_path)}: {str(e)}. Retrying...")
             except Exception as e:
                 if attempt == self.max_retries:
                     return False, f"Unexpected error for {os.path.basename(input_path)} after {attempt} attempts: {str(e)}"
-                self.logger.warning(
+                self.logger.debug(
                     f"Attempt {attempt}/{self.max_retries} failed for {os.path.basename(input_path)}: {str(e)}. Retrying...")
         return False, f"Failed to decrypt {os.path.basename(input_path)} after {self.max_retries} attempts"
 
