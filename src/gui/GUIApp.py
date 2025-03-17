@@ -673,8 +673,12 @@ class GUIApp(QMainWindow):
                 btn.setParent(None)
         self.task_buttons.clear()
 
-        base_dir = os.path.dirname(__file__)
-        task_dir = os.path.join(base_dir, '..', 'task', dir_name)
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        task_dir = os.path.join(base_dir, 'src', 'task', dir_name)
+
         self.logger.debug(f"Task directory path: {task_dir}")
         if not os.path.exists(task_dir):
             self.logger.error(f"Directory {task_dir} does not exist.")
@@ -903,7 +907,13 @@ class GUIApp(QMainWindow):
         self.automated_task = None
         self.current_task_settings = {}
 
-        release_notes_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'release_notes')
+        # Determine the base directory (installation directory when installed, script dir when not)
+        if getattr(sys, 'frozen', False):  # Running as PyInstaller executable
+            base_dir = os.path.dirname(sys.executable)  # Path to automation_tool.exe
+        else:  # Running as script (e.g., during development)
+            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+
+        release_notes_path = os.path.join(base_dir, 'release_notes')
         if not os.path.exists(release_notes_path):
             self.logger.error(f"Release notes directory not found at {release_notes_path}")
             release_notes_path = os.path.dirname(__file__)

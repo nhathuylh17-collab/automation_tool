@@ -5,8 +5,10 @@ from PyInstaller.utils.hooks import collect_submodules
 platform_name = platform.system()
 
 our_datas = [
-    ('resource', 'resource'),  # Adjust as needed
-    ('LICENSE', '.'),
+    ('resource', 'resource'),
+    ('LICENSE', 'LICENSE'),
+    ('src/task', 'src/task'),
+    ('src', 'src')
 ]
 our_hidden_imports = [
     'selenium.webdriver.chrome',
@@ -28,20 +30,23 @@ our_hidden_imports = [
     'fpdf',
     'certifi',
     'xvfbwrapper',
+    'pikepdf',
 ]
 if platform_name == 'Windows':
     our_hidden_imports.extend(collect_submodules('comtypes'))
 
+our_hidden_imports.extend(collect_submodules('src'))
+
 a = Analysis(
     ['src/gui/GUIApp.py'],
     pathex=[],
-    binaries=[('/path/to/chromedriver', '.')],  # Add WebDriver path
+    binaries=[],
     datas=our_datas,
     hiddenimports=our_hidden_imports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['tkinter', 'numpy'],  # Optional
+    excludes=['tkinter', 'numpy'],
     noarchive=False,
     optimize=0,
 )
@@ -60,7 +65,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,  # Switch to True for debugging
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

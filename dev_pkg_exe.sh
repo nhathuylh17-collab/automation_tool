@@ -17,6 +17,7 @@ pyinstaller automation_tool.spec
 
 if [ -d dist ]; then
   cp -r input dist/
+  cp -r release_notes dist/
 fi
 
 deactivate

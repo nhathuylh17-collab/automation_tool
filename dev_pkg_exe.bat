@@ -20,6 +20,8 @@ pyinstaller automation_tool.spec
 
 IF EXIST dist (
     xcopy input dist\input /E /H /C /I
+    xcopy release_notes dist\release_notes /E /H /C /I
+    xcopy src\task dist\src\task /E /H /C /I
 )
 
 echo Checking Inno Setup path...

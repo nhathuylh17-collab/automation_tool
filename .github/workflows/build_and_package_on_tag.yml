@@ -38,6 +38,8 @@ jobs:
         run: |
           if exist dist (
               xcopy input dist\input /E /H /C /I
+              xcopy release_notes dist\release_notes /E /H /C /I
+              xcopy scr\task dist\scr\task /E /H /C /I
           )
         shell: cmd
 

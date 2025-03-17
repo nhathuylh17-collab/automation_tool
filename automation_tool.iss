@@ -39,9 +39,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion;
 Source: "dist\input\*"; DestDir: "{app}\input"; Flags: ignoreversion;
 Source: "dist\release_notes\*"; DestDir: "{app}\release_notes"; Flags: ignoreversion;
-; Optional: Add more folders like output if needed
-; Source: "dist\output\*"; DestDir: "{app}\output"; Flags: ignoreversion;
-
+Source: "dist\src\task\*"; DestDir: "{app}\src\task"; Flags: ignoreversion;
 [Registry]
 Root: HKA; Subkey: "Software\Classes\{#MyAppAssocExt}\OpenWithProgids"; ValueType: string; ValueName: "{#MyAppAssocKey}"; ValueData: ""; Flags: uninsdeletevalue
 Root: HKA; Subkey: "Software\Classes\{#MyAppAssocKey}"; ValueType: string; ValueName: ""; ValueData: "{#MyAppAssocName}"; Flags: uninsdeletekey
