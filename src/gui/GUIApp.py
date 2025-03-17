@@ -673,10 +673,17 @@ class GUIApp(QMainWindow):
                 btn.setParent(None)
         self.task_buttons.clear()
 
+        # if getattr(sys, 'frozen', False):
+        #     base_dir = os.path.dirname(sys.executable)
+        # else:
+        #     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        # task_dir = os.path.join(base_dir, 'src', 'task', dir_name)
+        # Determine base directory
         if getattr(sys, 'frozen', False):
-            base_dir = os.path.dirname(sys.executable)
+            base_dir = os.path.dirname(sys.executable)  # e.g., C:\automation_tool
         else:
             base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        # Set task_dir to the root task directory
         task_dir = os.path.join(base_dir, 'src', 'task', dir_name)
 
         self.logger.debug(f"Task directory path: {task_dir}")

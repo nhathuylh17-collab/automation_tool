@@ -7,7 +7,9 @@ platform_name = platform.system()
 our_datas = [
     ('resource', 'resource'),
     ('LICENSE', 'LICENSE'),
-    ('src/task', 'src/task'),
+    ('src/task/web', 'src/task/web'),
+    ('src/task/desktop', 'src/task/desktop'),
+    ('src/task/arbitrary', 'src/task/arbitrary'),
     ('src', 'src')
 ]
 our_hidden_imports = [

@@ -21,12 +21,11 @@ pyinstaller automation_tool.spec
 IF EXIST dist (
     xcopy input dist\input /E /H /C /I
     xcopy release_notes dist\release_notes /E /H /C /I
-    IF EXIST src\task (
-        xcopy src\task dist\src\task /E /H /C /I
-        echo Copied src\task to dist\src\task
-    ) ELSE (
-        echo Warning: src\task does not exist or is empty. Skipping copy.
-    )
+    REM Ensure src/task/ subdirectories are copied
+    xcopy src\task\web dist\src\task\web /E /H /C /I
+    xcopy src\task\desktop dist\src\task\desktop /E /H /C /I
+    xcopy src\task\arbitrary dist\src\task\arbitrary /E /H /C /I
+    echo Copied src/task subdirectories to dist/src/task
 )
 
 echo Checking Inno Setup path...

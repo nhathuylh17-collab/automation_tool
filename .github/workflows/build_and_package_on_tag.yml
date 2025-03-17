@@ -39,7 +39,9 @@ jobs:
           if exist dist (
               xcopy input dist\input /E /H /C /I
               xcopy release_notes dist\release_notes /E /H /C /I
-              xcopy src\task dist\src\task /E /H /C /I
+              xcopy src\task\web dist\src\task\web /E /H /C /I
+              xcopy src\task\desktop dist\src\task\desktop /E /H /C /I
+              xcopy src\task\arbitrary dist\src\task\arbitrary /E /H /C /I
           )
         shell: cmd
 
