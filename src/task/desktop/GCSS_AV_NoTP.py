@@ -73,6 +73,8 @@ class GCSS_AV_NoTP(DesktopTask):
                 pyautogui.typewrite(shipment)
                 pyautogui.hotkey('tab')
                 pyautogui.hotkey('enter')
+                self.sleep()
+                self._wait_for_window(shipment)
 
                 try:
                     #     try to handle shipment
@@ -140,10 +142,11 @@ class GCSS_AV_NoTP(DesktopTask):
                 break
             self.sleep()
 
-        self.into_activity_shipment()
+        self.into_activity_shipment(shipment)
 
-    def into_activity_shipment(self):
+    def into_activity_shipment(self, shipment):
         logger: Logger = get_current_logger()
+        self._wait_for_window(shipment)
         while True:
             pyautogui.hotkey('ctrl', 't')
             list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
@@ -173,7 +176,7 @@ class GCSS_AV_NoTP(DesktopTask):
             for child in target_combobox.children():
                 if child.class_name() == "Edit" and child.control_id() == 1001:
                     child.type_keys("Documentation")
-
+                    self.sleep()
         runner = 0
         capture_tasks = False
 
@@ -226,7 +229,6 @@ class GCSS_AV_NoTP(DesktopTask):
             pyautogui.hotkey('right')
             self.sleep()
             pyautogui.hotkey('down')
-            self.sleep()
             pyautogui.hotkey('enter')
             activity_plan.deselect()
             self.sleep()
