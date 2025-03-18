@@ -1,1 +1,2 @@
 Release 1st version for ticket GCSS_AV_NoTP docs, cover 2 case: Data Quantity and Seal Mismatch
+Try to open tab Shipment, not choose tab Transport Document

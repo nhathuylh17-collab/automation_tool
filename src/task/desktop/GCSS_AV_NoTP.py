@@ -70,6 +70,9 @@ class GCSS_AV_NoTP(DesktopTask):
             try:
                 #     try to interface and open shipment
                 pyautogui.hotkey('ctrl', 'o')
+                pyautogui.hotkey('shift', 'tab')
+                pyautogui.typewrite('Shipment')
+                pyautogui.hotkey('tab')
                 pyautogui.typewrite(shipment)
                 pyautogui.hotkey('tab')
                 pyautogui.hotkey('enter')
