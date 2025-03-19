@@ -1,16 +1,23 @@
 import getpass
 import os
+import shutil
 import socket
 import sys
+import tempfile
 from typing import Dict, Optional
 
+import matplotlib.pyplot as plt
 import pythoncom
+import requests
 import win32com.client
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QPropertyAnimation, QEasingCurve, QRect
-from PyQt5.QtGui import QFont, QPixmap
+from PyQt5.QtGui import QFont, QPixmap, QIcon
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
                              QTextEdit, QProgressBar, QFrame, QMessageBox, QScrollArea, QSplitter, QCheckBox, QComboBox,
-                             QGraphicsDropShadowEffect, QLineEdit, QTabWidget, QTreeWidgetItem, QTreeWidget, QStyle)
+                             QGraphicsDropShadowEffect, QLineEdit, QTabWidget, QTreeWidgetItem, QTreeWidget, QStyle,
+                             QGridLayout)
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from requests.auth import HTTPBasicAuth
 
 from src.common.FileUtil import load_key_value_from_file_properties, persist_settings_to_file
 from src.common.ReflectionUtil import create_task_instance
@@ -177,7 +184,12 @@ class GUIApp(QMainWindow):
         self.sidebar_menus = ["HomePage", "Website", "Desktop App", "Arbitrary", "Setting"]
 
         self.setWindowTitle("Maersk GSC VN Automation Toolkit")
-        self.resize(1200, 800)
+        self.resize(1400, 800)
+
+        icon_path = os.path.join(PathResolvingService.get_instance().resolve('resource'), "img",
+                                 "Untitled-1.sgv")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
 
         screen = QApplication.desktop().screenGeometry()
         x = (screen.width() - self.width()) // 2
@@ -1267,15 +1279,524 @@ class GUIApp(QMainWindow):
         account_layout.addStretch()
         tab_widget.addTab(account_tab, "Account")
 
+        # tab icon, color from maersk____________________
+        # tab icon, color from maersk
         icon_tab = QWidget()
         icon_layout = QVBoxLayout(icon_tab)
-        icon_layout.addWidget(QLabel("Icon settings will go here"))
-        icon_layout.addStretch()
-        tab_widget.addTab(icon_tab, "Icon")
 
+        # Thêm logo Maersk ở trên cùng
+        resource_dir = PathResolvingService.get_instance().resolve('resource')
+        logo_path = os.path.join(resource_dir, "img", "logo2.png")
+        logo_label = QLabel()
+        if not os.path.exists(logo_path):
+            logo_label.setText("Logo not found")
+        else:
+            pixmap = QPixmap(logo_path)
+            logo_label.setPixmap(pixmap.scaled(200, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        logo_label.setAlignment(Qt.AlignCenter)
+        icon_layout.addWidget(logo_label)
+
+        # Tạo scroll area để chứa tất cả các màu
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)  # Cho phép tự động điều chỉnh kích thước
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: 0px;
+            }
+            QScrollArea QScrollBar:vertical {
+                border: none;
+                background: #FFFFFF;
+                width: 6px;
+                margin: 0px 0px 0px 0px;
+            }
+            QScrollArea QScrollBar::handle:vertical {
+                background: #FFFFFF;
+                min-height: 20px;
+                border-radius: 0px;
+            }
+            QScrollArea QScrollBar::handle:vertical:hover {
+                background: #FFFFFF;
+            }
+            QScrollArea QScrollBar::add-line:vertical {
+                height: 0px;
+                subcontrol-position: bottom;
+                subcontrol-origin: margin;
+            }
+            QScrollArea QScrollBar::sub-line:vertical {
+                height: 0px;
+                subcontrol-position: top;
+                subcontrol-origin: margin;
+            }
+            QScrollArea QScrollBar::up-arrow:vertical, QScrollArea QScrollBar::down-arrow:vertical {
+                background: none;
+            }
+            QScrollArea QScrollBar::add-page:vertical, QScrollArea QScrollBar::sub-page:vertical {
+                background: none;
+            }
+        """)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+
+        # Frame chính để chứa các màu
+        colors_container = QWidget()
+        colors_layout = QVBoxLayout(colors_container)
+        colors_layout.setSpacing(5)  # Khoảng cách giữa các phần
+
+        # Hàm helper để tạo một mục màu
+        def create_color_section(title, color_hex, details, width=300, height=200, text_below=False,
+                                 selectable=False):
+            color_frame = QFrame()
+            if text_below:
+                color_layout = QVBoxLayout(color_frame)
+            else:
+                color_layout = QHBoxLayout(color_frame)
+
+            # Ô màu
+            color_label = QLabel()
+            color_label.setFixedSize(width, height)
+            if title == "Maersk White":
+                color_label.setStyleSheet(
+                    f"background-color: {color_hex}; border: 1px solid #D4D4D4; border-radius: 5px;")
+            else:
+                color_label.setStyleSheet(f"background-color: {color_hex}; border: none; border-radius: 5px;")
+            if text_below:
+                color_layout.addWidget(color_label)
+            else:
+                color_layout.addWidget(color_label)
+
+            # Thông số màu
+            if not text_below:
+                info_frame = QFrame()
+                info_layout = QVBoxLayout(info_frame)
+                info_layout.setAlignment(Qt.AlignLeft)
+
+                title_label = QLabel(title)
+                title_label.setFont(QFont("Maersk Headline", 12))
+                title_label.setStyleSheet("color: #003E62;")
+                info_layout.addWidget(title_label)
+
+                details_text = QTextEdit()
+                details_text.setReadOnly(True)
+                details_text.setFont(QFont("Maersk Text", 10))
+                details_text.setStyleSheet("border: none; background-color: transparent; color: #6A6A6A;")
+                details_text.setText(details)
+                details_text.setSizeAdjustPolicy(QTextEdit.AdjustToContents)
+                info_layout.addWidget(details_text)
+
+                color_layout.addWidget(info_frame)
+            else:
+                title_label = QLabel(title)
+                title_label.setFont(QFont("Maersk Headline", 10))
+                title_label.setStyleSheet("color: #003E62; margin-top: 5px;")
+                color_layout.addWidget(title_label)
+
+                if selectable:  # Sử dụng QTextEdit nếu cần chọn văn bản
+                    details_text = QTextEdit()
+                    details_text.setReadOnly(True)
+                    details_text.setFont(QFont("Maersk Text", 8))
+                    details_text.setStyleSheet("border: none; background-color: transparent; color: #6A6A6A;")
+                    details_text.setText(details)
+                    details_text.setFixedWidth(width)
+                    details_text.setSizeAdjustPolicy(QTextEdit.AdjustToContents)
+                else:  # Giữ nguyên QLabel nếu không cần chọn
+                    details_text = QLabel(details)
+                    details_text.setFont(QFont("Maersk Text", 8))
+                    details_text.setStyleSheet("color: #6A6A6A;")
+                    details_text.setWordWrap(True)
+                    details_text.setFixedWidth(width)
+                color_layout.addWidget(details_text)
+
+            return color_frame
+
+        # Maersk Colors (ô màu lớn với kích thước mới)
+        core_title = QLabel("Uniquely Maersk")
+        core_title.setFont(QFont("Maersk Headline", 14))
+        core_title.setStyleSheet("color: #003E62; margin-top: 10px; margin-bottom: 5px;")
+        colors_layout.addWidget(core_title)
+
+        core_desc = QLabel(
+            "Maersk is known around the world for the Maersk Blue. "
+            "It is an important part of the brand at the forefront of our touchpoints and communications. "
+            "The color palette contains three sections that have different use cases; brand palette, function and accent colors."
+            "Color specifications are provided in the Pantone color system and in CMYK (for printing), in RGB (for use on-screen), "
+            "and as hexadecimal values (for digital design). All Maersk colors have been developed and tested to ensure consistent use of all color codes. "
+            "The unique color definitions have been developed for use on different types of media, meaning one should always consider the communication material at hand before using the colors."
+        )
+        core_desc.setFont(QFont("Maersk Text", 10))
+        core_desc.setStyleSheet("color: #6A6A6A; margin-bottom: 10px;")
+        core_desc.setWordWrap(True)
+        colors_layout.addWidget(core_desc)
+
+        # Maersk Colors (ô màu lớn với kích thước mới)
+        maersk_title = QLabel("Brand Palette")
+        maersk_title.setFont(QFont("Maersk Headline", 14))
+        maersk_title.setStyleSheet("color: #003E62; margin-top: 10px; margin-bottom: 5px;")
+        colors_layout.addWidget(maersk_title)
+
+        maersk_desc = QLabel(
+            "The first level of our colour palette is what we call our brand palette and is a representation of the Maersk symbol and "
+            "wordmark. Where the combination of Maersk blue and white is our core expression in colour, Maersk black is essentially our text "
+            "colour, ensuring readability and accessibility in all spaces. Apart from some specific digital use cases, and some presentational "
+            "elements, we avoid using Maersk black as a flood colour."
+        )
+        maersk_desc.setFont(QFont("Maersk Text", 10))
+        maersk_desc.setStyleSheet("color: #6A6A6A; margin-bottom: 10px;")
+        maersk_desc.setWordWrap(True)
+        colors_layout.addWidget(maersk_desc)
+
+        # Maersk Blue
+        colors_layout.addWidget(create_color_section(
+            "Maersk Blue", "#42B0D5",
+            "PANTONE Coated: PMS Maersk Blue\n"
+            "PANTONE Uncoated: PMS Maersk Blue\n"
+            "PANTONE Color Data System QC #: MSK005\n"
+            "CMYK Coated: C 65 / M 0 / Y 7 / K 2\n"
+            "CMYK Uncoated: C 68 / M 0 / Y 10 / K 0\n"
+            "RGB: R 66 / G 176 / B 213\n"
+            "HEX: #42B0D5\n"
+            "PAINT: HEMPEL 30070\n"
+            "LAB: L* 67.0, a* -21.56, b* -28.74\n"
+            "RAL: 230 70 30",
+            width=500, height=300
+        ))
+
+        # Maersk White
+        colors_layout.addWidget(create_color_section(
+            "Maersk White", "#FFFFFF",
+            "CMYK Coated: C 0 / M 0 / Y 0 / K 0\n"
+            "CMYK Uncoated: C 0 / M 0 / Y 0 / K 0\n"
+            "RGB: R 255 / G 255 / B 255\n"
+            "HEX: #FFFFFF",
+            width=500, height=200
+        ))
+
+        # Maersk Black
+        colors_layout.addWidget(create_color_section(
+            "Maersk Black", "#141414",
+            "PANTONE Coated: Black C\n"
+            "PANTONE Uncoated: Black U\n"
+            "CMYK Coated: C 0 / M 0 / Y 0 / K 100\n"
+            "CMYK Uncoated: C 0 / M 0 / Y 0 / K 100\n"
+            "RGB: R 20 / G 20 / B 20\n"
+            "HEX: #141414",
+            width=500, height=250
+        ))
+
+        # Functional Palette (ô màu 400x150, 1 cột)
+        functional_title = QLabel("Functional Palette")
+        functional_title.setFont(QFont("Maersk Headline", 14))
+        functional_title.setStyleSheet("color: #003E62; margin-bottom: 5px;")
+        colors_layout.addWidget(functional_title)
+
+        functional_desc = QLabel(
+            "The next step of our color palette consists of an additional eight colors; four blues and four greys. "
+            "They are used in designs and communications to fill areas and highlight information in a consistent, yet flexible way."
+        )
+        functional_desc.setFont(QFont("Maersk Text", 10))
+        functional_desc.setStyleSheet("color: #6A6A6A; margin-bottom: 5px;")
+        functional_desc.setWordWrap(True)
+        colors_layout.addWidget(functional_desc)
+
+        functional_layout = QVBoxLayout()
+        functional_layout.setSpacing(5)
+
+        functional_colors = [
+            ("Dark Blue", "#003E62",
+             "PANTONE Coated: 7700 C\nPANTONE Uncoated: 3015 U\nRGB: R 0 / G 62 / B 98\nHEX: #003E62"),
+            ("Mid Blue", "#1686BD",
+             "PANTONE Coated: 2454 C\nPANTONE Uncoated: 7704 U\nRGB: R 22 / G 134 / B 189\nHEX: #1686BD"),
+            ("Light Blue", "#A1D1E8",
+             "PANTONE Coated: 2975 C\nPANTONE Uncoated: 636 U\nRGB: R 161 / G 209 / B 232\nHEX: #A1D1E8"),
+            ("Bright Blue", "#E2F3FB",
+             "PANTONE Coated: 9460 C\nPANTONE Uncoated: 9040 U\nRGB: R 226 / G 243 / B 251\nHEX: #E2F3FB"),
+            ("Dark Grey", "#363636",
+             "PANTONE Coated: 425 C\nPANTONE Uncoated: 425 U\nRGB: R 54 / G 54 / B 54\nHEX: #363636"),
+            ("Mid Grey", "#6A6A6A",
+             "PANTONE Coated: Cool Gray 9 C\nPANTONE Uncoated: Cool Gray 9 U\nRGB: R 106 / G 106 / B 106\nHEX: #6A6A6A"),
+            ("Light Grey", "#D4D4D4",
+             "PANTONE Coated: Cool Gray 4 C\nPANTONE Uncoated: Cool Gray 4 U\nRGB: R 212 / G 212 / B 212\nHEX: #D4D4D4"),
+            ("Bright Grey", "#F0F0F0",
+             "PANTONE Coated: Cool Gray 1 C\nPANTONE Uncoated: Cool Gray 1 U\nRGB: R 240 / G 240 / B 240\nHEX: #F0F0F0")
+        ]
+
+        for title, color_hex, details in functional_colors:
+            functional_layout.addWidget(create_color_section(title, color_hex, details, width=500, height=150))
+
+        functional_widget = QWidget()
+        functional_widget.setLayout(functional_layout)
+        colors_layout.addWidget(functional_widget)
+
+        # Accent Palette (ô màu 150x100, 3 cột)
+        accent_title = QLineEdit("Accent Palette")
+        accent_title.setFont(QFont("Maersk Headline", 14))
+        accent_title.setStyleSheet("color: #003E62; margin-top: 20px; margin-bottom: 5px;")
+        colors_layout.addWidget(accent_title)
+
+        accent_desc = QLabel(
+            "Our accent colors begin the four step system started in our functional palette. "
+            "Their primary use case is for charts, graphs and data visualisations where large amounts of information needs to exist in a single instance."
+        )
+        accent_desc.setFont(QFont("Maersk Text", 10))
+        accent_desc.setStyleSheet("color: #6A6A6A; margin-bottom: 5px;")
+        accent_desc.setWordWrap(True)
+        colors_layout.addWidget(accent_desc)
+
+        accent_grid = QFrame()
+        accent_grid_layout = QGridLayout(accent_grid)
+        accent_grid_layout.setSpacing(5)
+
+        accent_colors = [
+            ("Dark Teal", "#034E45",
+             "PANTONE Coated: 7721 C\nPANTONE Uncoated: 2238 U\nRGB: R 3 / G 78 / B 69\nHEX: #034E45"),
+            ("Mid Teal", "#119C85",
+             "PANTONE Coated: 7716 C\nPANTONE Uncoated: 326 U\nRGB: R 17 / G 156 / B 133\nHEX: #119C85"),
+            ("Light Teal", "#97DECD",
+             "PANTONE Coated: 325 C\nPANTONE Uncoated: 324 U\nRGB: R 151 / G 222 / B 205\nHEX: #97DECD"),
+            ("Bright Teal", "#DFF7EE",
+             "PANTONE Coated: 9480 C\nPANTONE Uncoated: 9062 U\nRGB: R 223 / G 247 / B 238\nHEX: #DFF7EE"),
+            ("Dark Green", "#316307",
+             "PANTONE Coated: 2273 C\nPANTONE Uncoated: 2259 U\nRGB: R 49 / G 99 / B 7\nHEX: #316307"),
+            ("Mid Green", "#6CA926",
+             "PANTONE Coated: 361 C\nPANTONE Uncoated: 3501 U\nRGB: R 108 / G 169 / B 38\nHEX: #6CA926"),
+            ("Light Green", "#B9E371",
+             "PANTONE Coated: 7487 C\nPANTONE Uncoated: 2283 U\nRGB: R 185 / G 227 / B 113\nHEX: #B9E371"),
+            ("Bright Green", "#E8F6D0",
+             "PANTONE Coated: 9560 C\nPANTONE Uncoated: 9560 U\nRGB: R 232 / G 246 / B 208\nHEX: #E8F6D0"),
+            ("Dark Orange", "#903E00",
+             "PANTONE Coated: 160 C\nPANTONE Uncoated: 1525 U\nRGB: R 144 / G 62 / B 0\nHEX: #903E00"),
+            ("Mid Orange", "#F3870C",
+             "PANTONE Coated: 2011 C\nPANTONE Uncoated: 4008 U\nRGB: R 243 / G 135 / B 12\nHEX: #F3870C"),
+            ("Light Orange", "#FED195",
+             "PANTONE Coated: 1345 C\nPANTONE Uncoated: 1345 U\nRGB: R 254 / G 209 / B 149\nHEX: #FED195"),
+            ("Bright Orange", "#FFF5DD",
+             "PANTONE Coated: 9060 C\nPANTONE Uncoated: 9224 U\nRGB: R 255 / G 245 / B 221\nHEX: #FFF5DD"),
+            ("Dark Red", "#981F19",
+             "PANTONE Coated: 7621 C\nPANTONE Uncoated: 3517 U\nRGB: R 152 / G 31 / B 25\nHEX: #981F19"),
+            ("Mid Red", "#EA5D4B",
+             "PANTONE Coated: 4057 C\nPANTONE Uncoated: 7416 U\nRGB: R 234 / G 93 / B 75\nHEX: #EA5D4B"),
+            ("Light Red", "#FDA99E",
+             "PANTONE Coated: 1765 C\nPANTONE Uncoated: 1765 U\nRGB: R 253 / G 169 / B 158\nHEX: #FDA99E"),
+            ("Bright Red", "#FFE9E7",
+             "PANTONE Coated: 9286 C\nPANTONE Uncoated: 9022 U\nRGB: R 255 / G 233 / B 231\nHEX: #FFE9E7")
+        ]
+
+        for i, (title, color_hex, details) in enumerate(accent_colors):
+            accent_grid_layout.addWidget(
+                create_color_section(title, color_hex, details, width=200, height=100, text_below=True,
+                                     selectable=True), i // 3, i % 3)
+
+        colors_layout.addWidget(accent_grid)
+
+        # Thêm phần "Accent palette in use" với biểu đồ
+        accent_use_title = QLabel("Accent Palette in Use")
+        accent_use_title.setFont(QFont("Maersk Headline", 14, QFont.Bold))
+        accent_use_title.setStyleSheet("color: #003E62; margin-top: 20px; margin-bottom: 5px;")
+        colors_layout.addWidget(accent_use_title)
+
+        accent_use_desc = QLabel("Below you can see examples of the accent palette in use.")
+        accent_use_desc.setFont(QFont("Maersk Text", 10))
+        accent_use_desc.setStyleSheet("color: #6A6A6A; margin-bottom: 10px;")
+        accent_use_desc.setWordWrap(True)
+        colors_layout.addWidget(accent_use_desc)
+
+        # Tạo figure cho biểu đồ
+        fig = plt.Figure(figsize=(8, 4), dpi=100)
+        canvas = FigureCanvas(fig)
+
+        # Biểu đồ tròn (Pie Chart)
+        ax1 = fig.add_subplot(121)
+        sizes = [30, 40, 30]  # Giả lập dữ liệu
+        colors = ['#42B0D5', '#003E62', '#1686BD']  # Sử dụng một số màu từ Accent Palette
+        ax1.pie(sizes, labels=['30%', '40%', '30%'], colors=colors, autopct='%1.0f%%', startangle=90)
+        ax1.axis('equal')  # Đảm bảo biểu đồ tròn là hình tròn
+        # Thiết lập font và màu trắng cho Pie Chart
+        plt.setp(ax1.get_xticklabels(), fontfamily='Maersk Headline', color='#FFFFFF')
+        plt.setp(ax1.get_yticklabels(), fontfamily='Maersk Headline', color='#FFFFFF')
+        for text in ax1.texts:
+            text.set_color('#FFFFFF')
+            text.set_fontfamily('Maersk Headline')
+
+        # Biểu đồ cột (Bar Chart)
+        ax2 = fig.add_subplot(122)
+        bars = [20, 35, 15, 30]  # Giả lập dữ liệu
+        bar_colors = ['#42B0D5', '#003E62', '#1686BD', '#EA5D4B']  # Sử dụng các màu từ Accent Palette
+        ax2.bar(range(len(bars)), bars, color=bar_colors)
+        ax2.set_xticks(range(len(bars)))
+        ax2.set_xticklabels(['00', '00', '00', '00'])  # Giả lập nhãn như trong hình
+        # Thiết lập font và màu trắng cho Bar Chart
+        plt.setp(ax2.get_xticklabels(), fontfamily='Maersk Headline', color='#D4D4D4')
+        plt.setp(ax2.get_yticklabels(), fontfamily='Maersk Headline', color='#D4D4D4')
+        for label in ax2.get_xticklabels() + ax2.get_yticklabels():
+            label.set_color('#FFFFFF')
+        # Điều chỉnh layout để tránh chồng lấn
+        plt.tight_layout()
+
+        # Thêm phần "Overview Full Colour Palette"
+        overview_title = QLabel("Overview Full Colour Palette")
+        overview_title.setFont(QFont("Maersk Headline", 14, QFont.Bold))
+        overview_title.setStyleSheet("color: #003E62; margin-top: 20px; margin-bottom: 5px;")
+        colors_layout.addWidget(overview_title)
+
+        # Tạo layout ngang cho Overview
+        overview_frame = QFrame()
+        overview_layout = QHBoxLayout(overview_frame)
+        overview_layout.setSpacing(5)
+
+        # Core Palette
+        core_frame = QFrame()
+        core_layout = QVBoxLayout(core_frame)
+        core_title = QLabel("Core Palette")
+        core_title.setFont(QFont("Maersk Text", 10))
+        core_title.setStyleSheet("color: #6A6A6A; margin-bottom: 5px;")
+        core_layout.addWidget(core_title)
+
+        core_colors = [
+            ("Maersk Blue", "#42B0D5"),
+            ("Maersk White", "#FFFFFF"),
+            ("Maersk Black", "#141414")
+        ]
+
+        for title, color_hex in core_colors:
+            color_label = QLabel()
+            if title == "Maersk Blue":
+                color_label.setFixedSize(300, 170)  # Tỷ lệ lớn hơn
+            elif title == "Maersk White":
+                color_label.setFixedSize(300, 100)
+            else:  # Maersk Black
+                color_label.setFixedSize(300, 50)
+            color_label.setStyleSheet(f"background-color: {color_hex}; border: 1px solid #D4D4D4; border-radius: 5px;")
+            core_layout.addWidget(color_label)
+
+        overview_layout.addWidget(core_frame)
+
+        # Functional Palette
+        functional_frame = QFrame()
+        functional_layout = QVBoxLayout(functional_frame)
+        functional_title = QLabel("Functional Palette")
+        functional_title.setFont(QFont("Maersk Text", 10))
+        functional_title.setStyleSheet("color: #6A6A6A; margin-bottom: 5px;")
+        functional_layout.addWidget(functional_title)
+
+        functional_grid = QFrame()
+        functional_grid_layout = QGridLayout(functional_grid)
+        functional_grid_layout.setSpacing(5)
+
+        functional_colors = [
+            ("Dark Blue", "#003E62"),
+            ("Mid Blue", "#1686BD"),
+            ("Light Blue", "#A1D1E8"),
+            ("Bright Blue", "#E2F3FB"),
+            ("Dark Grey", "#363636"),
+            ("Mid Grey", "#6A6A6A"),
+            ("Light Grey", "#D4D4D4"),
+            ("Bright Grey", "#F0F0F0")
+        ]
+
+        for i, (title, color_hex) in enumerate(functional_colors):
+            color_label = QLabel()
+            color_label.setFixedSize(80, 80)
+            color_label.setStyleSheet(f"background-color: {color_hex}; border: 1px solid #D4D4D4; border-radius: 5px;")
+            functional_grid_layout.addWidget(color_label, i // 2, i % 2)
+
+        functional_layout.addWidget(functional_grid)
+        overview_layout.addWidget(functional_frame)
+
+        # Accent Palette
+        accent_frame = QFrame()
+        accent_layout = QVBoxLayout(accent_frame)
+        accent_title = QLabel("Accent Palette")
+        accent_title.setFont(QFont("Maersk Text", 10))
+        accent_title.setStyleSheet("color: #6A6A6A; margin-bottom: 5px;")
+        accent_layout.addWidget(accent_title)
+
+        accent_grid = QFrame()
+        accent_grid_layout = QGridLayout(accent_grid)
+        accent_grid_layout.setSpacing(5)
+
+        accent_colors = [
+            ("Dark Teal", "#034E45"),
+            ("Mid Teal", "#119C85"),
+            ("Light Teal", "#97DECD"),
+            ("Bright Teal", "#DFF7EE"),
+            ("Dark Green", "#316307"),
+            ("Mid Green", "#6CA926"),
+            ("Light Green", "#B9E371"),
+            ("Bright Green", "#E8F6D0"),
+            ("Dark Orange", "#903E00"),
+            ("Mid Orange", "#F3870C"),
+            ("Light Orange", "#FED195"),
+            ("Bright Orange", "#FFF5DD"),
+            ("Dark Red", "#981F19"),
+            ("Mid Red", "#EA5D4B"),
+            ("Light Red", "#FDA99E"),
+            ("Bright Red", "#FFE9E7")
+        ]
+
+        for i, (title, color_hex) in enumerate(accent_colors):
+            color_label = QLabel()
+            color_label.setFixedSize(40, 80)
+            color_label.setStyleSheet(f"background-color: {color_hex}; border: 1px solid #D4D4D4; border-radius: 5px;")
+            accent_grid_layout.addWidget(color_label, i // 4, i % 4)
+
+        accent_layout.addWidget(accent_grid)
+        overview_layout.addWidget(accent_frame)
+
+        colors_layout.addWidget(overview_frame)
+
+        # Thêm khoảng cách dưới cùng
+        colors_layout.addStretch()
+
+        # Thêm link đến Brand Central
+        brand_link_label = QLabel()
+        brand_link_label.setText('<a href="https://brandcentral.maersk.com/">Visit Maersk Brand Central</a>')
+        brand_link_label.setFont(QFont("Maersk Headline", 10))
+        brand_link_label.setOpenExternalLinks(True)
+        brand_link_label.setAlignment(Qt.AlignCenter)
+        brand_link_label.setStyleSheet("color: #42B0D5; margin-top: 20px;")
+        brand_link_label.linkActivated.connect(lambda: self.logger.info("Going to Brand Central link"))
+        colors_layout.addWidget(brand_link_label)
+
+        # Đặt container vào scroll area
+        scroll_area.setWidget(colors_container)
+        icon_layout.addWidget(scroll_area)
+
+        # Thêm tab vào tab_widget
+        tab_widget.addTab(icon_tab, "Colour")
+
+        # tab update version, api github and token___________________________________
         update_tab = QWidget()
         update_layout = QVBoxLayout(update_tab)
-        update_layout.addWidget(QLabel("Update settings will go here"))
+        update_layout.setAlignment(Qt.AlignCenter)
+
+        # Nhãn trạng thái cập nhật
+        update_status_label = QLabel("Click 'Check Update' to check for new versions.")
+        update_status_label.setFont(QFont("Maersk Headline", 12))
+        update_status_label.setStyleSheet("color: #363636;")
+        update_status_label.setAlignment(Qt.AlignCenter)
+        update_layout.addWidget(update_status_label)
+
+        # Nút kiểm tra cập nhật
+        check_update_button = QPushButton("Check Update")
+        check_update_button.setFont(QFont("Maersk Headline", 10))
+        check_update_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #003E62;
+                    color: #FFFFFF;
+                    padding: 8px 15px;
+                    border: none;
+                    border-radius: 5px;
+                    min-width: 120px;
+                }
+                QPushButton:hover {
+                    background-color: #42B0D5;
+                }
+                QPushButton:pressed {
+                    background-color: #1686BD;
+                }
+            """)
+        check_update_button.clicked.connect(lambda: self.check_for_updates(update_status_label))
+        update_layout.addWidget(check_update_button)
+
         update_layout.addStretch()
         tab_widget.addTab(update_tab, "Update")
 
@@ -1344,67 +1865,134 @@ class GUIApp(QMainWindow):
         check_mmd_layout.addStretch()
         tab_widget.addTab(check_mmd_tab, "Check MMD")
 
-        draft_tab = QWidget()
-        draft_layout = QVBoxLayout(draft_tab)
-        general_settings = self.load_general_settings()
-        default_path_frame = QFrame()
-        default_path_layout = QHBoxLayout(default_path_frame)
-        default_path_label = QLabel("Default Path: ")
-        default_path_label.setStyleSheet("color: #363636;")
-        default_path_layout.addWidget(default_path_label)
-        default_path_input = QLineEdit()
-        default_path_input.setStyleSheet(
-            "border-bottom: 0.5px solid #D4D4D4; border-radius: 0; background-color: #FFFFFF; padding: 2px;")
-        default_path_input.setPlaceholderText("Enter default path")
-        default_path_input.setObjectName("default_path_input")
-        default_path_input.setText(general_settings.get('default_path', ''))
-        default_path_layout.addWidget(default_path_input)
-        default_path_underline = QFrame()
-        default_path_underline.setFrameShape(QFrame.HLine)
-        default_path_underline.setFrameShadow(QFrame.Sunken)
-        default_path_underline.setStyleSheet("background-color: #FF0000; height: 2px;")
-        default_path_layout.addWidget(default_path_underline)
-        draft_layout.addWidget(default_path_frame)
-        log_level_frame = QFrame()
-        log_level_layout = QHBoxLayout(log_level_frame)
-        log_level_label = QLabel("Log Level: ")
-        log_level_label.setStyleSheet("color: #363636;")
-        log_level_layout.addWidget(log_level_label)
-        log_level_combo = QComboBox()
-        log_level_combo.addItems(["INFO", "DEBUG", "WARNING", "ERROR"])
-        log_level_combo.setCurrentText(general_settings.get('log_level', 'INFO'))
-        log_level_combo.setObjectName("log_level_combo")
-        log_level_layout.addWidget(log_level_combo)
-        log_level_underline = QFrame()
-        log_level_underline.setFrameShape(QFrame.HLine)
-        log_level_underline.setFrameShadow(QFrame.Sunken)
-        log_level_underline.setStyleSheet("background-color: #FF0000; height: 2px;")
-        log_level_layout.addWidget(log_level_underline)
-        draft_layout.addWidget(log_level_frame)
-        theme_frame = QFrame()
-        theme_layout = QHBoxLayout(theme_frame)
-        theme_label = QLabel(" Theme: ")
-        theme_label.setStyleSheet("color: #363636;")
-        theme_layout.addWidget(theme_label)
-        theme_combo = QComboBox()
-        theme_combo.addItems(["Light", "Dark"])
-        theme_combo.setCurrentText(general_settings.get('theme', 'Light'))
-        theme_combo.setObjectName("theme_combo")
-        theme_layout.addWidget(theme_combo)
-        theme_underline = QFrame()
-        theme_underline.setFrameShape(QFrame.HLine)
-        theme_underline.setFrameShadow(QFrame.Sunken)
-        theme_underline.setStyleSheet("background-color: #FF0000; height: 2px;")
-        theme_layout.addWidget(theme_underline)
-        draft_layout.addWidget(theme_frame)
-        save_button = QPushButton("Save Settings")
-        save_button.clicked.connect(self.save_general_settings)
-        draft_layout.addWidget(save_button)
-        draft_layout.addStretch()
-        tab_widget.addTab(draft_tab, "Draft")
+        # draft_tab = QWidget()
+        # draft_layout = QVBoxLayout(draft_tab)
+        # general_settings = self.load_general_settings()
+        # default_path_frame = QFrame()
+        # default_path_layout = QHBoxLayout(default_path_frame)
+        # default_path_label = QLabel("Default Path: ")
+        # default_path_label.setStyleSheet("color: #363636;")
+        # default_path_layout.addWidget(default_path_label)
+        # default_path_input = QLineEdit()
+        # default_path_input.setStyleSheet(
+        #     "border-bottom: 0.5px solid #D4D4D4; border-radius: 0; background-color: #FFFFFF; padding: 2px;")
+        # default_path_input.setPlaceholderText("Enter default path")
+        # default_path_input.setObjectName("default_path_input")
+        # default_path_input.setText(general_settings.get('default_path', ''))
+        # default_path_layout.addWidget(default_path_input)
+        # default_path_underline = QFrame()
+        # default_path_underline.setFrameShape(QFrame.HLine)
+        # default_path_underline.setFrameShadow(QFrame.Sunken)
+        # default_path_underline.setStyleSheet("background-color: #FF0000; height: 2px;")
+        # default_path_layout.addWidget(default_path_underline)
+        # draft_layout.addWidget(default_path_frame)
+        # log_level_frame = QFrame()
+        # log_level_layout = QHBoxLayout(log_level_frame)
+        # log_level_label = QLabel("Log Level: ")
+        # log_level_label.setStyleSheet("color: #363636;")
+        # log_level_layout.addWidget(log_level_label)
+        # log_level_combo = QComboBox()
+        # log_level_combo.addItems(["INFO", "DEBUG", "WARNING", "ERROR"])
+        # log_level_combo.setCurrentText(general_settings.get('log_level', 'INFO'))
+        # log_level_combo.setObjectName("log_level_combo")
+        # log_level_layout.addWidget(log_level_combo)
+        # log_level_underline = QFrame()
+        # log_level_underline.setFrameShape(QFrame.HLine)
+        # log_level_underline.setFrameShadow(QFrame.Sunken)
+        # log_level_underline.setStyleSheet("background-color: #FF0000; height: 2px;")
+        # log_level_layout.addWidget(log_level_underline)
+        # draft_layout.addWidget(log_level_frame)
+        # theme_frame = QFrame()
+        # theme_layout = QHBoxLayout(theme_frame)
+        # theme_label = QLabel(" Theme: ")
+        # theme_label.setStyleSheet("color: #363636;")
+        # theme_layout.addWidget(theme_label)
+        # theme_combo = QComboBox()
+        # theme_combo.addItems(["Light", "Dark"])
+        # theme_combo.setCurrentText(general_settings.get('theme', 'Light'))
+        # theme_combo.setObjectName("theme_combo")
+        # theme_layout.addWidget(theme_combo)
+        # theme_underline = QFrame()
+        # theme_underline.setFrameShape(QFrame.HLine)
+        # theme_underline.setFrameShadow(QFrame.Sunken)
+        # theme_underline.setStyleSheet("background-color: #FF0000; height: 2px;")
+        # theme_layout.addWidget(theme_underline)
+        # draft_layout.addWidget(theme_frame)
+        # save_button = QPushButton("Save Settings")
+        # save_button.clicked.connect(self.save_general_settings)
+        # draft_layout.addWidget(save_button)
+        # draft_layout.addStretch()
+        # tab_widget.addTab(draft_tab, "Draft")
 
         self.settings_layout.addWidget(tab_widget)
         self.settings_layout.addStretch()
+
+    def check_for_updates(self, status_label):
+        """Kiểm tra và tải xuống bản cập nhật từ GitHub."""
+        try:
+            # Thay bằng URL API GitHub của công ty bạn
+            github_repo_url = "https://github.com/Maersk-Global/automation_tool/releases/download/v0.0.50/automation_tool_installer_v0.0.50.exe"
+            # Nếu kho GitHub nội bộ yêu cầu xác thực, thêm thông tin đăng nhập
+            github_username = "huy-lehoangnhat-maersk"
+            github_token = "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"  # Tạo token từ GitHub settings
+
+            self.logger.info("Checking for updates from GitHub...")
+            status_label.setText("Checking for updates...")
+
+            # Gửi yêu cầu đến GitHub API
+            response = requests.get(github_repo_url, auth=HTTPBasicAuth(github_username, github_token))
+            response.raise_for_status()
+
+            release_info = response.json()
+            latest_tag = release_info["tag_name"]  # Ví dụ: "v1.0.1"
+            current_version = "v1.0.0"  # Giả định phiên bản hiện tại, bạn cần lấy từ ứng dụng
+
+            if latest_tag > current_version:
+                self.logger.info(f"New version found: {latest_tag}")
+                status_label.setText(f"New version found: {latest_tag}. Downloading...")
+
+                # Tải xuống tệp thực thi từ release assets
+                for asset in release_info["assets"]:
+                    if asset["name"].endswith(".exe"):  # Giả sử bạn tải file .exe
+                        download_url = asset["browser_download_url"]
+                        self.download_update(download_url, github_username, github_token, status_label)
+                        break
+                else:
+                    status_label.setText("No executable found in the latest release.")
+                    self.logger.error("No executable found in the latest release.")
+            else:
+                status_label.setText("You are using the latest version.")
+                self.logger.info("No updates available.")
+
+        except requests.RequestException as e:
+            status_label.setText("Failed to check for updates.")
+            self.logger.error(f"Error checking updates: {str(e)}")
+
+    def download_update(self, download_url, username, token, status_label):
+        """Tải xuống tệp cập nhật và lưu vào thư mục tạm thời."""
+        try:
+            response = requests.get(download_url, auth=HTTPBasicAuth(username, token), stream=True)
+            response.raise_for_status()
+
+            # Lưu tệp vào thư mục tạm thời
+            temp_dir = tempfile.gettempdir()
+            update_file_path = os.path.join(temp_dir, "update.exe")
+            with open(update_file_path, "wb") as f:
+                shutil.copyfileobj(response.raw, f)
+
+            self.logger.info(f"Update downloaded to {update_file_path}")
+            status_label.setText("Update downloaded. Please restart the application to apply.")
+
+            # Tùy chọn: Tự động chạy file cập nhật hoặc yêu cầu người dùng khởi động lại
+            QMessageBox.information(self, "Update Ready",
+                                    "Update downloaded. Please restart the application to apply changes.")
+
+        except requests.RequestException as e:
+            status_label.setText("Failed to download update.")
+            self.logger.error(f"Error downloading update: {str(e)}")
+        except Exception as e:
+            status_label.setText("Error processing update.")
+            self.logger.error(f"Error processing update file: {str(e)}")
 
     def show_mmd_details(self, computer_name, is_mmd_device):
         import platform

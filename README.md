@@ -7,17 +7,26 @@ Please note that all scripts in this tool are currently written for the user who
 
 ### How to run ?
 
+#### Old Version
+
 <img src="./resource/img/app.png" width="650"/><br>
 
-#### Run directly the packaged exe:
+#### New Version
+
+<img src="./resource/img/new_app.png" width="650"/><br>
+
+#### For Dev - Run directly the packaged exe:
 
 - Run the script dev_pkg_exe
 - In the generated dir 'dist', will have an exe for running and an exe for installing
 
-#### Run directly via python interpreter in IDE/dev env:
+#### For Dev - Run directly via python interpreter in IDE/dev env:
 
 - .\start_app gui      (GUI app)
 - .\start_app console  (console app, must provide info in InvokedClasses.properties and {task_name}.properties files in
   /input)
 
-###### After the run, all logs will be stored in `log`<br>These logs may be helpful for investigating any issues we faced during the running process.
+###### For Dev - After the run, all logs will be stored in `log`<br>These logs may be helpful for investigating any issues we faced during the running process.
+
+#### For User - run file automation_tool_version.exe and install like a normal app, recommend install this app in folder C:\
+
