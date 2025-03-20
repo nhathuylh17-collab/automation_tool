@@ -54,7 +54,7 @@ class GCSS_SPIR(DesktopTask):
         self.total_element_size = len(shipments)
 
         for i, shipment in enumerate(shipments):
-
+            self._wait_for_window('Pending Tray')
             if self.terminated is True:
                 return
 
@@ -156,14 +156,18 @@ class GCSS_SPIR(DesktopTask):
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2, 'Load')
 
-                pyautogui.hotkey('alt', 'k')
-                self.sleep()
+                # pyautogui.hotkey('alt', 'k')
+                # self.sleep()
                 break
 
-            if 'DISCHARG' in array[3]:
-                logger.info(f"Found 'DISCHARG' in shipment {shipment}. Skipping to next shipment.")
-                pyautogui.hotkey('alt', 'f4')
+            if 'DISCHARG' in array[3] or not 'LOAD' in array[3]:
+                logger.info(f"NOT found 'Load' in shipment {shipment}. Skipping to next shipment.")
+                pyautogui.hotkey('alt', 'E')
                 self.sleep()
+                pyautogui.hotkey('left')
+                self.sleep()
+                pyautogui.hotkey('C')
+                self._wait_for_window('Pending Tray')
                 raise SkipToNextShipment()
 
     def process_on_each_shipment_adhoc(self, shipment):
@@ -196,19 +200,21 @@ class GCSS_SPIR(DesktopTask):
                 self.into_activity_shipment()
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2, 'Load')
-                pyautogui.hotkey('alt', 'k')
-                pyautogui.hotkey('alt')
-                pyautogui.hotkey('v')
-                pyautogui.hotkey('left')
-                pyautogui.hotkey('left')
-                pyautogui.hotkey('c')
+                # pyautogui.hotkey('ctrl', 'k')
+                # pyautogui.hotkey('alt')
+                # pyautogui.hotkey('e')
+                # pyautogui.hotkey('left')
+                # pyautogui.hotkey('c')
                 self.sleep()
                 break
 
-            if 'DISCHARG' in array[3]:
-                logger.info(f"Found 'DISCHARG' in shipment {shipment}. Skipping to next shipment.")
-                pyautogui.hotkey('alt', 'f4')
+            if 'DISCHARG' in array[3] or not 'LOAD' in array[3]:
+                logger.info(f"NOT found 'Load' in shipment {shipment}. Skipping to next shipment.")
+                pyautogui.hotkey('alt', 'E')
                 self.sleep()
+                pyautogui.hotkey('left')
+                self.sleep()
+                pyautogui.hotkey('C')
                 raise SkipToNextShipment()
 
     def into_activity_shipment(self):
@@ -268,13 +274,17 @@ class GCSS_SPIR(DesktopTask):
         self.sleep()
 
         pyautogui.hotkey('q')
+        self.sleep()
         pyautogui.hotkey('p')
         self.sleep()
 
-        pyautogui.hotkey('alt', 'f')
-        pyautogui.hotkey('enter')
+        pyautogui.hotkey('alt', 'e')
+        self.sleep()
+        pyautogui.hotkey('left')
+        self.sleep()
         pyautogui.hotkey('c')
         self.sleep()
+        self._wait_for_window('Pending Tray')
 
     def handle_invalid_window(self, shipment: str, workbook):
         logger: Logger = get_current_logger()
@@ -286,7 +296,7 @@ class GCSS_SPIR(DesktopTask):
         pyautogui.hotkey('shift', 'tab')
         pyautogui.hotkey('down')
         pyautogui.hotkey('alt', 'k')
-
+        self._wait_for_window(shipment)
         self.process_on_each_shipment_adhoc(shipment)
         self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                             3, 'Done')
