@@ -6,7 +6,6 @@ import sys
 import tempfile
 from typing import Dict, Optional
 
-import matplotlib.pyplot as plt
 import pythoncom
 import requests
 import win32com.client
@@ -16,7 +15,6 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                              QTextEdit, QProgressBar, QFrame, QMessageBox, QScrollArea, QSplitter, QCheckBox, QComboBox,
                              QGraphicsDropShadowEffect, QLineEdit, QTabWidget, QTreeWidgetItem, QTreeWidget, QStyle,
                              QGridLayout)
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from requests.auth import HTTPBasicAuth
 
 from src.common.FileUtil import load_key_value_from_file_properties, persist_settings_to_file
@@ -1587,49 +1585,49 @@ class GUIApp(QMainWindow):
 
         colors_layout.addWidget(accent_grid)
 
-        # Thêm phần "Accent palette in use" với biểu đồ
-        accent_use_title = QLabel("Accent Palette in Use")
-        accent_use_title.setFont(QFont("Maersk Headline", 14, QFont.Bold))
-        accent_use_title.setStyleSheet("color: #003E62; margin-top: 20px; margin-bottom: 5px;")
-        colors_layout.addWidget(accent_use_title)
-
-        accent_use_desc = QLabel("Below you can see examples of the accent palette in use.")
-        accent_use_desc.setFont(QFont("Maersk Text", 10))
-        accent_use_desc.setStyleSheet("color: #6A6A6A; margin-bottom: 10px;")
-        accent_use_desc.setWordWrap(True)
-        colors_layout.addWidget(accent_use_desc)
-
-        # Tạo figure cho biểu đồ
-        fig = plt.Figure(figsize=(8, 4), dpi=100)
-        canvas = FigureCanvas(fig)
-
-        # Biểu đồ tròn (Pie Chart)
-        ax1 = fig.add_subplot(121)
-        sizes = [30, 40, 30]  # Giả lập dữ liệu
-        colors = ['#42B0D5', '#003E62', '#1686BD']  # Sử dụng một số màu từ Accent Palette
-        ax1.pie(sizes, labels=['30%', '40%', '30%'], colors=colors, autopct='%1.0f%%', startangle=90)
-        ax1.axis('equal')  # Đảm bảo biểu đồ tròn là hình tròn
-        # Thiết lập font và màu trắng cho Pie Chart
-        plt.setp(ax1.get_xticklabels(), fontfamily='Maersk Headline', color='#FFFFFF')
-        plt.setp(ax1.get_yticklabels(), fontfamily='Maersk Headline', color='#FFFFFF')
-        for text in ax1.texts:
-            text.set_color('#FFFFFF')
-            text.set_fontfamily('Maersk Headline')
-
-        # Biểu đồ cột (Bar Chart)
-        ax2 = fig.add_subplot(122)
-        bars = [20, 35, 15, 30]  # Giả lập dữ liệu
-        bar_colors = ['#42B0D5', '#003E62', '#1686BD', '#EA5D4B']  # Sử dụng các màu từ Accent Palette
-        ax2.bar(range(len(bars)), bars, color=bar_colors)
-        ax2.set_xticks(range(len(bars)))
-        ax2.set_xticklabels(['00', '00', '00', '00'])  # Giả lập nhãn như trong hình
-        # Thiết lập font và màu trắng cho Bar Chart
-        plt.setp(ax2.get_xticklabels(), fontfamily='Maersk Headline', color='#D4D4D4')
-        plt.setp(ax2.get_yticklabels(), fontfamily='Maersk Headline', color='#D4D4D4')
-        for label in ax2.get_xticklabels() + ax2.get_yticklabels():
-            label.set_color('#FFFFFF')
-        # Điều chỉnh layout để tránh chồng lấn
-        plt.tight_layout()
+        # # Thêm phần "Accent palette in use" với biểu đồ
+        # accent_use_title = QLabel("Accent Palette in Use")
+        # accent_use_title.setFont(QFont("Maersk Headline", 14, QFont.Bold))
+        # accent_use_title.setStyleSheet("color: #003E62; margin-top: 20px; margin-bottom: 5px;")
+        # colors_layout.addWidget(accent_use_title)
+        #
+        # accent_use_desc = QLabel("Below you can see examples of the accent palette in use.")
+        # accent_use_desc.setFont(QFont("Maersk Text", 10))
+        # accent_use_desc.setStyleSheet("color: #6A6A6A; margin-bottom: 10px;")
+        # accent_use_desc.setWordWrap(True)
+        # colors_layout.addWidget(accent_use_desc)
+        #
+        # # Tạo figure cho biểu đồ
+        # fig = plt.Figure(figsize=(8, 4), dpi=100)
+        # canvas = FigureCanvas(fig)
+        #
+        # # Biểu đồ tròn (Pie Chart)
+        # ax1 = fig.add_subplot(121)
+        # sizes = [30, 40, 30]  # Giả lập dữ liệu
+        # colors = ['#42B0D5', '#003E62', '#1686BD']  # Sử dụng một số màu từ Accent Palette
+        # ax1.pie(sizes, labels=['30%', '40%', '30%'], colors=colors, autopct='%1.0f%%', startangle=90)
+        # ax1.axis('equal')  # Đảm bảo biểu đồ tròn là hình tròn
+        # # Thiết lập font và màu trắng cho Pie Chart
+        # plt.setp(ax1.get_xticklabels(), fontfamily='Maersk Headline', color='#FFFFFF')
+        # plt.setp(ax1.get_yticklabels(), fontfamily='Maersk Headline', color='#FFFFFF')
+        # for text in ax1.texts:
+        #     text.set_color('#FFFFFF')
+        #     text.set_fontfamily('Maersk Headline')
+        #
+        # # Biểu đồ cột (Bar Chart)
+        # ax2 = fig.add_subplot(122)
+        # bars = [20, 35, 15, 30]  # Giả lập dữ liệu
+        # bar_colors = ['#42B0D5', '#003E62', '#1686BD', '#EA5D4B']  # Sử dụng các màu từ Accent Palette
+        # ax2.bar(range(len(bars)), bars, color=bar_colors)
+        # ax2.set_xticks(range(len(bars)))
+        # ax2.set_xticklabels(['00', '00', '00', '00'])  # Giả lập nhãn như trong hình
+        # # Thiết lập font và màu trắng cho Bar Chart
+        # plt.setp(ax2.get_xticklabels(), fontfamily='Maersk Headline', color='#D4D4D4')
+        # plt.setp(ax2.get_yticklabels(), fontfamily='Maersk Headline', color='#D4D4D4')
+        # for label in ax2.get_xticklabels() + ax2.get_yticklabels():
+        #     label.set_color('#FFFFFF')
+        # # Điều chỉnh layout để tránh chồng lấn
+        # plt.tight_layout()
 
         # Thêm phần "Overview Full Colour Palette"
         overview_title = QLabel("Overview Full Colour Palette")
@@ -1965,7 +1963,10 @@ class GUIApp(QMainWindow):
                 self.logger.info("No updates available.")
 
         except requests.RequestException as e:
-            status_label.setText("Failed to check for updates.")
+            status_label.setText(
+                "Failed to check for updates"
+
+                "Contact Developer: HNL014 - huy.le@lns.maersk.com")
             self.logger.error(f"Error checking updates: {str(e)}")
 
     def download_update(self, download_url, username, token, status_label):
