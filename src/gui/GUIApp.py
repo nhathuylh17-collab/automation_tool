@@ -163,6 +163,7 @@ class UITaskPerformingStatesImpl(UITaskPerformingStates):
 class GUIApp(QMainWindow):
     def __init__(self):
         super().__init__()
+
         try:
             pythoncom.CoInitialize()
             self.com_initialized = True
@@ -619,9 +620,27 @@ class GUIApp(QMainWindow):
         splitter.setStyleSheet("QSplitter::handle { background-color: #D4D4D4; }")
 
         main_layout.addWidget(splitter)
-
+        self.apply_theme(self.load_general_settings().get('theme', 'light'))
         self.setup_custom_logger()
         self.handle_homepage("HomePage")
+
+    def save_general_settings(self):
+        general_settings = {}
+        existing_settings = self.load_general_settings()
+        general_settings.update(existing_settings)
+
+        # Update theme based on current state
+        general_settings['theme'] = 'dark' if self.centralWidget().styleSheet().contains('#141414') else 'light'
+
+        setting_file = os.path.join(PathResolvingService.get_instance().get_input_dir(), 'general.properties')
+        try:
+            with open(setting_file, 'w') as f:
+                for key, value in general_settings.items():
+                    f.write(f"{key}={value}\n")
+            self.logger.info("General settings saved successfully.")
+            QMessageBox.information(self, "Settings Saved", "General settings have been saved.")
+        except Exception as e:
+            self.logger.error(f"Error saving general settings: {str(e)}", exc_info=True)
 
     # Implement mouse event handlers for dragging the window via the header
     def mousePressEvent(self, event):
@@ -846,7 +865,12 @@ class GUIApp(QMainWindow):
         self.task_thread.start()
 
     def handle_pause_button(self):
-        if not self.automated_task or not self.automated_task.is_alive():
+        is_task_running = (
+                (self.automated_task and self.automated_task.is_alive()) or
+                (hasattr(self, 'task_thread') and self.task_thread.isRunning())
+        )
+        if not is_task_running:
+            self.logger.info(f"No task is running for {self.current_task_name}. Pause action skipped.")
             return
 
         if self.is_task_currently_pause:
@@ -861,6 +885,15 @@ class GUIApp(QMainWindow):
     def handle_reset_button(self):
         if not self.current_task_name:
             self.logger.info("No task is running or selected. Reset action skipped.")
+            return
+
+        # fix error if click reset before perform task, make cannot choose or update field input
+        is_task_running = (
+                (self.automated_task and self.automated_task.is_alive()) or
+                (hasattr(self, 'task_thread') and self.task_thread.isRunning())
+        )
+        if not is_task_running:
+            self.logger.info(f"No task is running for {self.current_task_name}. Reset action skipped.")
             return
 
         if self.automated_task and self.automated_task.is_alive():
@@ -1863,67 +1896,88 @@ class GUIApp(QMainWindow):
         check_mmd_layout.addStretch()
         tab_widget.addTab(check_mmd_tab, "Check MMD")
 
-        # draft_tab = QWidget()
-        # draft_layout = QVBoxLayout(draft_tab)
-        # general_settings = self.load_general_settings()
-        # default_path_frame = QFrame()
-        # default_path_layout = QHBoxLayout(default_path_frame)
-        # default_path_label = QLabel("Default Path: ")
-        # default_path_label.setStyleSheet("color: #363636;")
-        # default_path_layout.addWidget(default_path_label)
-        # default_path_input = QLineEdit()
-        # default_path_input.setStyleSheet(
-        #     "border-bottom: 0.5px solid #D4D4D4; border-radius: 0; background-color: #FFFFFF; padding: 2px;")
-        # default_path_input.setPlaceholderText("Enter default path")
-        # default_path_input.setObjectName("default_path_input")
-        # default_path_input.setText(general_settings.get('default_path', ''))
-        # default_path_layout.addWidget(default_path_input)
-        # default_path_underline = QFrame()
-        # default_path_underline.setFrameShape(QFrame.HLine)
-        # default_path_underline.setFrameShadow(QFrame.Sunken)
-        # default_path_underline.setStyleSheet("background-color: #FF0000; height: 2px;")
-        # default_path_layout.addWidget(default_path_underline)
-        # draft_layout.addWidget(default_path_frame)
-        # log_level_frame = QFrame()
-        # log_level_layout = QHBoxLayout(log_level_frame)
-        # log_level_label = QLabel("Log Level: ")
-        # log_level_label.setStyleSheet("color: #363636;")
-        # log_level_layout.addWidget(log_level_label)
-        # log_level_combo = QComboBox()
-        # log_level_combo.addItems(["INFO", "DEBUG", "WARNING", "ERROR"])
-        # log_level_combo.setCurrentText(general_settings.get('log_level', 'INFO'))
-        # log_level_combo.setObjectName("log_level_combo")
-        # log_level_layout.addWidget(log_level_combo)
-        # log_level_underline = QFrame()
-        # log_level_underline.setFrameShape(QFrame.HLine)
-        # log_level_underline.setFrameShadow(QFrame.Sunken)
-        # log_level_underline.setStyleSheet("background-color: #FF0000; height: 2px;")
-        # log_level_layout.addWidget(log_level_underline)
-        # draft_layout.addWidget(log_level_frame)
-        # theme_frame = QFrame()
-        # theme_layout = QHBoxLayout(theme_frame)
-        # theme_label = QLabel(" Theme: ")
-        # theme_label.setStyleSheet("color: #363636;")
-        # theme_layout.addWidget(theme_label)
-        # theme_combo = QComboBox()
-        # theme_combo.addItems(["Light", "Dark"])
-        # theme_combo.setCurrentText(general_settings.get('theme', 'Light'))
-        # theme_combo.setObjectName("theme_combo")
-        # theme_layout.addWidget(theme_combo)
-        # theme_underline = QFrame()
-        # theme_underline.setFrameShape(QFrame.HLine)
-        # theme_underline.setFrameShadow(QFrame.Sunken)
-        # theme_underline.setStyleSheet("background-color: #FF0000; height: 2px;")
-        # theme_layout.addWidget(theme_underline)
-        # draft_layout.addWidget(theme_frame)
-        # save_button = QPushButton("Save Settings")
-        # save_button.clicked.connect(self.save_general_settings)
-        # draft_layout.addWidget(save_button)
-        # draft_layout.addStretch()
-        # tab_widget.addTab(draft_tab, "Draft")
+        # New Personalize Tab
+        personalize_tab = QWidget()
+        personalize_layout = QVBoxLayout(personalize_tab)
+        personalize_layout.setAlignment(Qt.AlignCenter)
+        personalize_layout.setSpacing(20)
+
+        # Title for Personalize Tab
+        personalize_title = QLabel("Personalize Your Experience")
+        personalize_title.setFont(QFont("Maersk Headline", 14))
+        personalize_title.setStyleSheet("color: #003E62;")
+        personalize_layout.addWidget(personalize_title)
+
+        # Theme selection frame
+        theme_frame = QFrame()
+        theme_layout = QHBoxLayout(theme_frame)
+        theme_layout.setSpacing(15)
+
+        # Light Mode Button
+        light_mode_button = QPushButton("Light Mode")
+        light_mode_button.setFont(QFont("Maersk Headline", 10))
+        light_mode_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #003E62;
+                    color: #FFFFFF;
+                    padding: 8px 20px;
+                    border: none;
+                    border-radius: 5px;
+                    min-width: 120px;
+                }
+                QPushButton:hover {
+                    background-color: #42B0D5;
+                }
+                QPushButton:pressed {
+                    background-color: #1686BD;
+                }
+            """)
+        light_mode_button.clicked.connect(lambda: self._safe_apply_theme("light"))
+        theme_layout.addWidget(light_mode_button)
+
+        # Dark Mode Button
+        dark_mode_button = QPushButton("Dark Mode")
+        dark_mode_button.setFont(QFont("Maersk Headline", 10))
+        dark_mode_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #003E62;
+                    color: #FFFFFF;
+                    padding: 8px 20px;
+                    border: none;
+                    border-radius: 5px;
+                    min-width: 120px;
+                }
+                QPushButton:hover {
+                    background-color: #42B0D5;
+                }
+                QPushButton:pressed {
+                    background-color: #1686BD;
+                }
+            """)
+        dark_mode_button.clicked.connect(lambda: self._safe_apply_theme("dark"))
+        theme_layout.addWidget(dark_mode_button)
+
+        personalize_layout.addWidget(theme_frame)
+        personalize_layout.addStretch()
+
+        tab_widget.addTab(personalize_tab, "Personalize")
 
         self.settings_layout.addWidget(tab_widget)
         self.settings_layout.addStretch()
+
+    def _safe_apply_theme(self, mode):
+        """Wrapper to safely apply theme and save settings."""
+        try:
+            self.logger.debug(f"Attempting to apply {mode} theme")
+            self.apply_theme(mode)
+            self.save_general_settings()
+            self.logger.debug(f"Successfully applied {mode} theme")
+        except Exception as e:
+            self.logger.debug('abc')
+            # self.logger.error(f"Error in theme switch: {str(e)}", exc_info=True)
+            # QMessageBox.critical(self, "Theme Switch Error", f"Failed to switch to {mode} theme: {str(e)}")
+        # self.settings_layout.addWidget(tab_widget)
+        # self.settings_layout.addStretch()
 
     def check_for_updates(self, status_label):
         """Kiểm tra và tải xuống bản cập nhật từ GitHub."""
@@ -2105,23 +2159,23 @@ class GUIApp(QMainWindow):
             return {}
         return load_key_value_from_file_properties(setting_file)
 
-    def save_general_settings(self):
-        general_settings = {}
-        default_path_input = self.findChild(QLineEdit, "default_path_input")
-        if default_path_input:
-            general_settings['default_path'] = default_path_input.text()
-        log_level_combo = self.findChild(QComboBox, "log_level_combo")
-        if log_level_combo:
-            general_settings['log_level'] = log_level_combo.currentText()
-        theme_combo = self.findChild(QComboBox, "theme_combo")
-        if theme_combo:
-            general_settings['theme'] = theme_combo.currentText()
-
-        setting_file = os.path.join(PathResolvingService.get_instance().get_input_dir(), 'general.properties')
-        with open(setting_file, 'w') as f:
-            for key, value in general_settings.items():
-                f.write(f"{key}={value}\n")
-        QMessageBox.information(self, "Settings Saved", "General settings have been saved.")
+    # def save_general_settings(self):
+    #     general_settings = {}
+    #     default_path_input = self.findChild(QLineEdit, "default_path_input")
+    #     if default_path_input:
+    #         general_settings['default_path'] = default_path_input.text()
+    #     log_level_combo = self.findChild(QComboBox, "log_level_combo")
+    #     if log_level_combo:
+    #         general_settings['log_level'] = log_level_combo.currentText()
+    #     theme_combo = self.findChild(QComboBox, "theme_combo")
+    #     if theme_combo:
+    #         general_settings['theme'] = theme_combo.currentText()
+    #
+    #     setting_file = os.path.join(PathResolvingService.get_instance().get_input_dir(), 'general.properties')
+    #     with open(setting_file, 'w') as f:
+    #         for key, value in general_settings.items():
+    #             f.write(f"{key}={value}\n")
+    #     QMessageBox.information(self, "Settings Saved", "General settings have been saved.")
 
     def update_button_states(self):
         has_task = self.current_task_name is not None and self.automated_task is not None
@@ -2136,7 +2190,7 @@ class GUIApp(QMainWindow):
         if has_task:
             self.perform_button.setDisabled(False)
             self.reset_button.setDisabled(False)
-            self.pause_button.setDisabled(not running_task)
+            self.pause_button.setDisabled(False)
         else:
             self.perform_button.setDisabled(True)
             self.reset_button.setDisabled(True)
@@ -2154,6 +2208,141 @@ class GUIApp(QMainWindow):
         if hasattr(self, 'account_tree_widget'):
             self.account_tree_widget.deleteLater()
             del self.account_tree_widget
+
+    def apply_theme(self, mode):
+        """Apply the selected theme to the application."""
+        try:
+            themes = {
+                "light": {
+                    "background": "#FFFFFF",
+                    "secondary_background": "#F0F0F0",
+                    "text": "#141414",
+                    "accent": "#003E62"
+                },
+                "dark": {
+                    "background": "#141414",
+                    "secondary_background": "#363636",
+                    "text": "#FFFFFF",
+                    "accent": "#E2F3FB"
+                }
+            }
+
+            mode = mode.lower()
+            selected_theme = themes[mode]
+
+            # Update main window components
+            self.centralWidget().setStyleSheet(f"background-color: {selected_theme['background']};")
+            self.header.setStyleSheet(
+                f"background-color: {selected_theme['accent']}; height: 50px; min-height: 50px; max-height: 50px;")
+            self.sidebar.setStyleSheet(f"background-color: {selected_theme['background']}; border: 0px;")
+            self.settings_frame.setStyleSheet(
+                f"background-color: {selected_theme['background']}; border: 0px solid #D4D4D4; border-radius: 5px; padding: 10px;")
+            self.logging_textbox.setStyleSheet(f"""
+                QTextEdit {{
+                    background-color: {selected_theme['background']};
+                    border: 1px solid #D4D4D4;
+                    border-radius: 5px;
+                    padding: 5px;
+                    color: {selected_theme['text']};
+                    min-height: 200px;
+                    min-width: 800px;
+                }}
+            """)
+
+            # Update sidebar buttons
+            for i in range(self.sidebar_layout.count()):
+                widget = self.sidebar_layout.itemAt(i).widget()
+                if isinstance(widget, QPushButton):
+                    if widget.text() in ["Website", "Desktop App", "Arbitrary"]:
+                        widget.setStyleSheet(f"""
+                            QPushButton {{
+                                background-color: {selected_theme['background']};
+                                color: #6A6A6A;
+                                padding: 8px 0 8px 10px;
+                                border: none;
+                                width: 100%;
+                                text-align: left;
+                                font-weight: normal;
+                                min-width: 0;
+                                max-width: 100%;
+                                white-space: normal;
+                            }}
+                            QPushButton:hover {{
+                                background-color: #F5F5F5;
+                                color: {selected_theme['text']};
+                            }}
+                        """)
+                    else:
+                        widget.setStyleSheet(f"""
+                            QPushButton {{
+                                background-color: {selected_theme['background']};
+                                color: {selected_theme['accent']};
+                                padding: 10px 0 10px 10px;
+                                border: none;
+                                width: 100%;
+                                text-align: left;
+                                font-weight: bold;
+                                min-width: 0;
+                                max-width: 100%;
+                                white-space: normal;
+                            }}
+                            QPushButton:hover {{
+                                color: #1686BD;
+                                background-color: #E0E0E0;
+                            }}
+                        """)
+
+            # Update right frame and content with safety checks
+            splitter = self.centralWidget().findChild(QSplitter)
+            if splitter and splitter.count() > 1:
+                right_frame = splitter.widget(1)
+                if right_frame:
+                    right_frame.setStyleSheet(f"background-color: {selected_theme['secondary_background']};")
+                    main_content = right_frame.findChild(QFrame, "")
+                    if main_content:
+                        main_content.setStyleSheet(
+                            f"background-color: {selected_theme['secondary_background']}; border: 0px solid #D4D4D4; border-radius: 5px;")
+            self.button_frame.setStyleSheet(f"background-color: {selected_theme['secondary_background']};")
+
+            # Update button text colors with safety checks
+            for btn in [self.perform_button, self.pause_button, self.reset_button]:
+                if btn:
+                    btn.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: {selected_theme['accent']};
+                            color: {selected_theme['text']};
+                            padding: 5px 15px;
+                            border: none;
+                            border-radius: 5px;
+                        }}
+                        QPushButton:hover {{
+                            background-color: #42B0D5;
+                        }}
+                        QPushButton:pressed {{
+                            background-color: #1686BD;
+                        }}
+                    """)
+            if self.reset_button:
+                self.reset_button.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {selected_theme['accent']};
+                        color: {selected_theme['text']};
+                        padding: 5px 15px;
+                        border: none;
+                        border-radius: 5px;
+                    }}
+                    QPushButton:hover {{
+                        background-color: #EA5D4B;
+                    }}
+                    QPushButton:pressed {{
+                        background-color: #1686BD;
+                    }}
+                """)
+
+            self.logger.info(f"Applied {mode} mode theme.")
+        except Exception as e:
+            self.logger.error(f"Error applying theme '{mode}': {str(e)}", exc_info=True)
+            QMessageBox.critical(self, "Theme Error", f"Failed to apply {mode} theme: {str(e)}")
 
 
 if __name__ == "__main__":
