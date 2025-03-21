@@ -1,0 +1,2 @@
+Fix issue for GCSS_AV_NoTPdoc, split to 2 function update for RCDQI and RSM
+Fix bug No Activity in listview.items in GCSS_SPIR when shipment no have any activity

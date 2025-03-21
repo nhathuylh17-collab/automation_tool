@@ -1,4 +1,3 @@
-import time
 from logging import Logger
 from typing import Callable
 
@@ -42,10 +41,6 @@ class GCSS_SPIR(DesktopTask):
         shipments: list[str] = get_excel_data_in_column_start_at_row(self._settings['excel.path'],
                                                                      self._settings['excel.sheet'],
                                                                      self._settings['excel.shipment'])
-
-        # col, row = extract_row_col_from_cell_pos_format(self._settings['excel.status.cell'])
-        # self.current_status_excel_col_index: int = int(self.get_letter_position(col))
-        # self.current_status_excel_row_index: int = int(row)
 
         self._wait_for_window('Pending Tray')
         self._window_title_stack.append('Pending Tray')
@@ -97,7 +92,16 @@ class GCSS_SPIR(DesktopTask):
 
                     self.excel_provider.save(workbook)
                     continue
+                except Skipnoactivity:
+                    self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                        2, 'No Activity')
+                    self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                        3, 'Skip')
+                    self.current_status_excel_row_index += 1
+                    self.current_element_count += 1
 
+                    self.excel_provider.save(workbook)
+                    continue
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     3, 'Done')
                 self.current_status_excel_row_index += 1
@@ -112,8 +116,8 @@ class GCSS_SPIR(DesktopTask):
                                                     'Cannot handle shipment {}, please check manual'.format(shipment))
                 self.excel_provider.save(workbook)
                 logger.info(f'Cannot handle shipment {shipment}. Moving to next shipment')
-
-                self._close_windows_util_reach_first_gscc()
+                self._wait_for_window('Pending Tray')
+                # self._close_windows_util_reach_first_gscc()
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
                 continue
@@ -126,7 +130,6 @@ class GCSS_SPIR(DesktopTask):
 
     def process_on_each_shipment(self, shipment):
         logger: Logger = get_current_logger()
-
         window_normal_shipment: str = self._wait_for_window(shipment)
         self._window_title_stack.append(window_normal_shipment)
         gw.getWindowsWithTitle(window_normal_shipment)[0].activate()
@@ -135,14 +138,24 @@ class GCSS_SPIR(DesktopTask):
         self._window: WindowSpecification = self._app.window(title=self._window_title_stack.peek())
 
         pyautogui.hotkey('ctrl', 'k')
-        time.sleep(2)
+        self.sleep()
 
-        list_views = self._window.children(class_name="SysListView32")[1]
+        list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")[1]
+        items = list_views.items()  # Chuyển items() thành danh sách để kiểm tra
+        if not items:  # Nếu không có item nào
+            logger.info('Not found any activity in {}, skip to next shipment'.format(shipment))
+            self._wait_for_window(shipment)
+            pyautogui.hotkey('alt', 'E')
+            self.sleep()
+            pyautogui.hotkey('left')
+            self.sleep()
+            pyautogui.hotkey('C')
+            self._wait_for_window('Pending Tray')
+            raise Skipnoactivity()
 
         runner = 0
         array = [None for _ in range(8)]
         for item in list_views.items():
-
             array[runner] = item.text()
 
             if runner != 7:
@@ -160,8 +173,9 @@ class GCSS_SPIR(DesktopTask):
                 # self.sleep()
                 break
 
-            if 'DISCHARG' in array[3] or not 'LOAD' in array[3]:
-                logger.info(f"NOT found 'Load' in shipment {shipment}. Skipping to next shipment.")
+            if array[3] is None:
+                logger.info(f"Not found 'Load' in shipment {shipment}. Skipping to next shipment.")
+                self._wait_for_window(shipment)
                 pyautogui.hotkey('alt', 'E')
                 self.sleep()
                 pyautogui.hotkey('left')
@@ -183,7 +197,18 @@ class GCSS_SPIR(DesktopTask):
         pyautogui.hotkey('ctrl', 'k')
         self.sleep()
 
-        list_views = self._window.children(class_name="SysListView32")[0]
+        list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")[1]
+        items = list_views.items()  # Chuyển items() thành danh sách để kiểm tra
+        if not items:  # Nếu không có item nào
+            logger.info('Not found any activity in {}, skip to next shipment'.format(shipment))
+            self._wait_for_window(shipment)
+            pyautogui.hotkey('alt', 'E')
+            self.sleep()
+            pyautogui.hotkey('left')
+            self.sleep()
+            pyautogui.hotkey('C')
+            self._wait_for_window('Pending Tray')
+            raise Skipnoactivity()
 
         runner = 0
         array = [None for _ in range(8)]
@@ -200,21 +225,17 @@ class GCSS_SPIR(DesktopTask):
                 self.into_activity_shipment()
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2, 'Load')
-                # pyautogui.hotkey('ctrl', 'k')
-                # pyautogui.hotkey('alt')
-                # pyautogui.hotkey('e')
-                # pyautogui.hotkey('left')
-                # pyautogui.hotkey('c')
                 self.sleep()
                 break
 
-            if 'DISCHARG' in array[3] or not 'LOAD' in array[3]:
-                logger.info(f"NOT found 'Load' in shipment {shipment}. Skipping to next shipment.")
+            if array[3] is None:
+                logger.info(f"Not found 'Load' in shipment {shipment}. Skipping to next shipment.")
                 pyautogui.hotkey('alt', 'E')
                 self.sleep()
                 pyautogui.hotkey('left')
                 self.sleep()
                 pyautogui.hotkey('C')
+                self._wait_for_window('Pending Tray')
                 raise SkipToNextShipment()
 
     def into_activity_shipment(self):
@@ -285,6 +306,7 @@ class GCSS_SPIR(DesktopTask):
         pyautogui.hotkey('c')
         self.sleep()
         self._wait_for_window('Pending Tray')
+        self._window_title_stack.append('Pending Tray')
 
     def handle_invalid_window(self, shipment: str, workbook):
         logger: Logger = get_current_logger()
@@ -314,4 +336,8 @@ class GCSS_SPIR(DesktopTask):
 
 
 class SkipToNextShipment(Exception):
+    pass
+
+
+class Skipnoactivity(Exception):
     pass

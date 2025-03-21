@@ -13,7 +13,7 @@ from src.excel_reader_provider.XlwingProvider import XlwingProvider
 from src.task.DesktopTask import DesktopTask
 
 
-class AV_NoTP_RCDQI(DesktopTask):
+class AV_RSM(DesktopTask):
 
     def __init__(self, settings: dict[str, str], callback_before_run_task: Callable[[], None]):
         super().__init__(settings, callback_before_run_task)
@@ -41,10 +41,6 @@ class AV_NoTP_RCDQI(DesktopTask):
                                                                      self._settings['excel.sheet'],
                                                                      self._settings['excel.shipment'])
 
-        # col, row = extract_row_col_from_cell_pos_format(self._settings['excel.status.cell'])
-        # self.current_status_excel_col_index: int = int(self.get_letter_position(col))
-        # self.current_status_excel_row_index: int = int(row)
-
         self._wait_for_window('Pending Tray')
         self._window_title_stack.append('Pending Tray')
 
@@ -52,7 +48,6 @@ class AV_NoTP_RCDQI(DesktopTask):
         self.total_element_size = len(shipments)
 
         for i, shipment in enumerate(shipments):
-
             if self.terminated is True:
                 return
 
@@ -80,7 +75,7 @@ class AV_NoTP_RCDQI(DesktopTask):
                 pyautogui.hotkey('enter')
                 self.sleep()
                 self._wait_for_window(shipment)
-                self._window_title_stack.append(shipment)
+
                 try:
                     #     try to handle shipment
                     self.process_on_each_shipment(shipment)
@@ -152,6 +147,8 @@ class AV_NoTP_RCDQI(DesktopTask):
     def into_activity_shipment(self, shipment):
         logger: Logger = get_current_logger()
         self._wait_for_window(shipment)
+        self._window_title_stack.append(shipment)
+
         while True:
             pyautogui.hotkey('ctrl', 't')
             list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
@@ -186,8 +183,7 @@ class AV_NoTP_RCDQI(DesktopTask):
         capture_tasks = False
 
         array = [None for _ in range(6)]
-        list_of_activity_plan: list[_listview_item] = []
-        # list_of_activity_plan_seal: list[_listview_item] = []
+        list_of_activity_plan_seal: list[_listview_item] = []
         listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
 
         for item in listview_activity.items():
@@ -199,33 +195,28 @@ class AV_NoTP_RCDQI(DesktopTask):
 
             runner = 0
 
-            if array[0].text().startswith('Resolve Customs Data Quality Issues'):
+            if array[0].text().startswith('Resolve Seal Mismatch'):
                 capture_tasks = True
-
             if capture_tasks is True:
 
-                if array[0].text().startswith('Resolve Customs Data Quality Issues') and array[4].text() == 'Open':
-                    logger.info('Data Quality is Open now')
-                    list_of_activity_plan.append(array[0])
+                if array[0].text().startswith('Resolve Seal Mismatch') and array[4].text() == 'Open':
+                    logger.info('Seal Mismatch is Open now')
+                    list_of_activity_plan_seal.append(array[0])
 
-                if array[0].text().startswith('Resolve Customs Data Quality Issues') and array[4].text() == 'Closed':
-                    logger.info('Data Quality is closed before')
+                if array[0].text().startswith('Resolve Seal Mismatch') and array[4].text() == 'Closed':
+                    logger.info('Seal Mismatch is closed before')
 
-        for activity_plan in list_of_activity_plan:
-            activity_plan.select()
-            pyautogui.hotkey('alt', 'h')
+        for plan_seal in list_of_activity_plan_seal:
+            plan_seal.select()
+            pyautogui.hotkey('alt', 'L')
             self.sleep()
-            pyautogui.hotkey('left')
-            self.sleep()
-            # self.select_menu_item("Manifest")
-            pyautogui.hotkey('down')
-            self.sleep()
-            pyautogui.hotkey('right')
-            self.sleep()
-            pyautogui.hotkey('down')
-            pyautogui.hotkey('enter')
-            activity_plan.deselect()
-            self.sleep()
+
+            while True:
+                list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
+                pyautogui.hotkey('ctrl', 't')
+                if list_views.__len__() == 1:
+                    break
+                self.sleep()
 
         # self.select_menu_item("File")
         pyautogui.hotkey('alt', 'e')
