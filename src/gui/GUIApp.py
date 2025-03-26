@@ -1,3 +1,4 @@
+import ctypes
 import getpass
 import os
 import shutil
@@ -401,6 +402,7 @@ class GUIApp(QMainWindow):
                                                                                       "Desktop App": "desktop",
                                                                                       "Arbitrary": "arbitrary"}[m]))
             elif menu == "Setting":
+                # self.logging_textbox.setVisible(False)
                 btn.clicked.connect(self.handle_settings)
 
             self.sidebar_layout.addWidget(btn)
@@ -436,7 +438,7 @@ class GUIApp(QMainWindow):
             }
             QScrollArea QScrollBar::handle:vertical {
                 background: #C0C0C0;
-                min-height: 20px;
+                min-height: 10px;
                 border-radius: 3px;
             }
             QScrollArea QScrollBar::handle:vertical:hover {
@@ -620,7 +622,7 @@ class GUIApp(QMainWindow):
         splitter.setStyleSheet("QSplitter::handle { background-color: #D4D4D4; }")
 
         main_layout.addWidget(splitter)
-        self.apply_theme(self.load_general_settings().get('theme', 'light'))
+        # self.apply_theme(self.load_general_settings().get('theme', 'light'))
         self.setup_custom_logger()
         self.handle_homepage("HomePage")
 
@@ -630,7 +632,7 @@ class GUIApp(QMainWindow):
         general_settings.update(existing_settings)
 
         # Update theme based on current state
-        general_settings['theme'] = 'dark' if self.centralWidget().styleSheet().contains('#141414') else 'light'
+        general_settings['theme'] = 'light' if self.centralWidget().styleSheet().contains('#FFFFFF') else 'dark'
 
         setting_file = os.path.join(PathResolvingService.get_instance().get_input_dir(), 'general.properties')
         try:
@@ -702,12 +704,6 @@ class GUIApp(QMainWindow):
                 btn.setParent(None)
         self.task_buttons.clear()
 
-        # if getattr(sys, 'frozen', False):
-        #     base_dir = os.path.dirname(sys.executable)
-        # else:
-        #     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        # task_dir = os.path.join(base_dir, 'src', 'task', dir_name)
-        # Determine base directory
         if getattr(sys, 'frozen', False):
             base_dir = os.path.dirname(sys.executable)  # e.g., C:\automation_tool
         else:
@@ -1158,6 +1154,7 @@ class GUIApp(QMainWindow):
         if not message:
             return ""
         lines = message.split('\n')
+
         formatted_lines = []
         for line in lines:
             if line.strip():
@@ -1167,8 +1164,6 @@ class GUIApp(QMainWindow):
         return '\n'.join(formatted_lines)
 
     def handle_settings(self):
-        self.clear_settings_layout()
-
         self.clear_settings_layout()
 
         self.current_task_name = None
@@ -1957,6 +1952,28 @@ class GUIApp(QMainWindow):
         dark_mode_button.clicked.connect(lambda: self._safe_apply_theme("dark"))
         theme_layout.addWidget(dark_mode_button)
 
+        # button for wallpaper
+        wall_button = QPushButton("Set up Wallpaper")
+        wall_button.setFont(QFont("Maersk Headline", 10))
+        wall_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #003E62;
+                    color: #FFFFFF;
+                    padding: 8px 20px;
+                    border: none;
+                    border-radius: 5px;
+                    min-width: 120px;
+                }
+                QPushButton:hover {
+                    background-color: #42B0D5;
+                }
+                QPushButton:pressed {
+                    background-color: #1686BD;
+                }
+            """)
+        wall_button.clicked.connect(lambda: self.set_wallpaper(image_path='C:\\Users\\HNL014\\Downloads\\image.jpg'))
+        theme_layout.addWidget(wall_button)
+
         personalize_layout.addWidget(theme_frame)
         personalize_layout.addStretch()
 
@@ -1964,6 +1981,30 @@ class GUIApp(QMainWindow):
 
         self.settings_layout.addWidget(tab_widget)
         self.settings_layout.addStretch()
+
+    def set_wallpaper(self, image_path):
+        from src.setup.packaging.admin.AdminPrivilegeProvider import AdminPrivilegeProvider
+
+        AdminPrivilegeProvider.validate_and_provide()
+
+        # Modify Windows registry to set the wallpaper path
+
+        # self.remove_wallpaper_policy()
+        image_path = os.path.abspath(image_path)
+        if not os.path.isfile(image_path):
+            raise FileNotFoundError(f"Image file not found: {image_path}")
+
+        # Convert the Python string to a wide-character string (LPCWSTR)
+        # SystemParametersInfoW expects a Unicode string
+        result = ctypes.windll.user32.SystemParametersInfoW(
+            20,  # SPI_SETDESKWALLPAPER
+            0,  # uiParam (ignored for this action)
+            image_path,  # pvParam (path to the image)
+            0x01 | 0x02  # fWinIni (1 = update ini, 2 = notify, 3 = both)
+        )
+
+        if not result:
+            raise ctypes.WinError(ctypes.get_last_error())
 
     def _safe_apply_theme(self, mode):
         """Wrapper to safely apply theme and save settings."""

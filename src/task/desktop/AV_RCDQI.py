@@ -109,6 +109,18 @@ class AV_RCDQI(DesktopTask):
                     except Exception as e:
                         print("Skip " + shipment)
 
+                except SkipTPDOC:
+                    try:
+                        # try to save excel and skip shipment
+                        self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                            2,
+                                                            'Have TP Doc')
+                        self.current_status_excel_row_index += 1
+                        self.current_element_count += 1
+                        self.excel_provider.save(workbook)
+                    except Exception as e:
+                        print("Have TP Doc " + shipment)
+
             except Exception:
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
@@ -116,7 +128,7 @@ class AV_RCDQI(DesktopTask):
                 self.excel_provider.save(workbook)
                 logger.info(f'Cannot handle shipment {shipment}. Moving to next shipment')
 
-                self._close_windows_util_reach_first_gscc()
+                self._wait_for_window("Pending Tray")
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
                 continue
@@ -187,7 +199,8 @@ class AV_RCDQI(DesktopTask):
 
         array = [None for _ in range(6)]
         list_of_activity_plan: list[_listview_item] = []
-        # list_of_activity_plan_seal: list[_listview_item] = []
+        list_of_activity_plan_close: list[_listview_item] = []
+
         listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
 
         for item in listview_activity.items():
@@ -209,8 +222,32 @@ class AV_RCDQI(DesktopTask):
                     list_of_activity_plan.append(array[0])
 
                 if array[0].text().startswith('Resolve Customs Data Quality Issues') and array[4].text() == 'Closed':
+                    list_of_activity_plan_close.append(array[0])
                     logger.info('Data Quality is closed before')
 
+        # cover IF we have TPDOC - more than 1 row has Resolve Customs Data Quality Issues
+        if len(list_of_activity_plan) > 1 or len(list_of_activity_plan_close) > 1:
+            pyautogui.hotkey('alt', 'e')
+            self.sleep()
+            pyautogui.hotkey('left')
+            self.sleep()
+            pyautogui.hotkey('c')
+            self.sleep()
+            self._wait_for_window('Pending Tray')
+            raise SkipTPDOC
+
+        # TPDOC - 1 row open and 1 row closed
+        if len(list_of_activity_plan) == 1 and len(list_of_activity_plan_close) == 1:
+            pyautogui.hotkey('alt', 'e')
+            self.sleep()
+            pyautogui.hotkey('left')
+            self.sleep()
+            pyautogui.hotkey('c')
+            self.sleep()
+            self._wait_for_window('Pending Tray')
+            raise SkipTPDOC
+
+        # normal shipment
         for activity_plan in list_of_activity_plan:
             activity_plan.select()
             pyautogui.hotkey('alt', 'h')
@@ -258,4 +295,8 @@ class AV_RCDQI(DesktopTask):
 
 
 class SkipToNextShipment(Exception):
+    pass
+
+
+class SkipTPDOC(Exception):
     pass

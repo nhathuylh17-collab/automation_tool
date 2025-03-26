@@ -97,7 +97,7 @@ class GCSS_SCID(DesktopTask):
                 self.input_status_into_excel('An exception error')
                 self.excel_provider.save(workbook)
                 logger.info(f'Cannot handle shipment {shipment}. Moving to next shipment')
-                self._close_windows_util_reach_first_gscc()
+                self._wait_for_window('Pending Tray')
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
                 continue

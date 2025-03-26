@@ -104,6 +104,18 @@ class AV_RSM(DesktopTask):
                     except Exception as e:
                         print("Skip " + shipment)
 
+                except SkipTPDOC:
+                    try:
+                        # try to save excel and skip shipment
+                        self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                            2,
+                                                            'Have TPDoc')
+                        self.current_status_excel_row_index += 1
+                        self.current_element_count += 1
+                        self.excel_provider.save(workbook)
+                    except Exception as e:
+                        print("TP Doc " + shipment)
+
             except Exception:
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
@@ -111,7 +123,7 @@ class AV_RSM(DesktopTask):
                 self.excel_provider.save(workbook)
                 logger.info(f'Cannot handle shipment {shipment}. Moving to next shipment')
 
-                self._close_windows_util_reach_first_gscc()
+                self._wait_for_window("Pending Tray")
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
                 continue
@@ -183,7 +195,9 @@ class AV_RSM(DesktopTask):
         capture_tasks = False
 
         array = [None for _ in range(6)]
+
         list_of_activity_plan_seal: list[_listview_item] = []
+        list_of_activity_plan_seal_closed: list[_listview_item] = []
         listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
 
         for item in listview_activity.items():
@@ -204,8 +218,32 @@ class AV_RSM(DesktopTask):
                     list_of_activity_plan_seal.append(array[0])
 
                 if array[0].text().startswith('Resolve Seal Mismatch') and array[4].text() == 'Closed':
+                    list_of_activity_plan_seal_closed.append(array[0])
                     logger.info('Seal Mismatch is closed before')
 
+        # cover case TPDOC - more than 1 row Seal Mismatch is closed before
+        if len(list_of_activity_plan_seal) > 1 or len(list_of_activity_plan_seal_closed) > 1:
+            pyautogui.hotkey('alt', 'e')
+            self.sleep()
+            pyautogui.hotkey('left')
+            self.sleep()
+            pyautogui.hotkey('c')
+            self.sleep()
+            self._wait_for_window('Pending Tray')
+            raise SkipTPDOC
+
+        # cover case TPDOC - 1 is opened and 1 is closed - total 2 row
+        if len(list_of_activity_plan_seal) == 1 and len(list_of_activity_plan_seal_closed) == 1:
+            pyautogui.hotkey('alt', 'e')
+            self.sleep()
+            pyautogui.hotkey('left')
+            self.sleep()
+            pyautogui.hotkey('c')
+            self.sleep()
+            self._wait_for_window('Pending Tray')
+            raise SkipTPDOC
+
+        # normal shipment
         for plan_seal in list_of_activity_plan_seal:
             plan_seal.select()
             pyautogui.hotkey('alt', 'L')
@@ -245,8 +283,12 @@ class AV_RSM(DesktopTask):
             menu_items = menu.items()
             for item in menu_items:
                 logger.debug(f"  - {item.text()}")
-                logger.info('cannot select')
+                logger.info('Cannot select')
 
 
 class SkipToNextShipment(Exception):
+    pass
+
+
+class SkipTPDOC(Exception):
     pass

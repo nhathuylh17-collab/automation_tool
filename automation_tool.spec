@@ -33,6 +33,8 @@ our_hidden_imports = [
     'certifi',
     'xvfbwrapper',
     'pikepdf',
+    'pywin32',
+    'pyuac',
 ]
 if platform_name == 'Windows':
     our_hidden_imports.extend(collect_submodules('comtypes'))
