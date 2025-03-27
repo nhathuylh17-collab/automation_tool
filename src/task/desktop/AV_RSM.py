@@ -193,9 +193,9 @@ class AV_RSM(DesktopTask):
                     self.sleep()
         runner = 0
         capture_tasks = False
-
+        self.sleep()
         array = [None for _ in range(6)]
-
+        self.sleep()
         list_of_activity_plan_seal: list[_listview_item] = []
         list_of_activity_plan_seal_closed: list[_listview_item] = []
         listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
@@ -219,7 +219,7 @@ class AV_RSM(DesktopTask):
 
                 if array[0].text().startswith('Resolve Seal Mismatch') and array[4].text() == 'Closed':
                     list_of_activity_plan_seal_closed.append(array[0])
-                    logger.info('Seal Mismatch is closed before')
+                    logger.info('Seal Mismatch is closed before by {}'.format(array[2]))
 
         # cover case TPDOC - more than 1 row Seal Mismatch is closed before
         if len(list_of_activity_plan_seal) > 1 or len(list_of_activity_plan_seal_closed) > 1:

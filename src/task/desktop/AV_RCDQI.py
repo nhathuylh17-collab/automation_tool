@@ -196,11 +196,11 @@ class AV_RCDQI(DesktopTask):
                     self.sleep()
         runner = 0
         capture_tasks = False
-
+        self.sleep()
         array = [None for _ in range(6)]
         list_of_activity_plan: list[_listview_item] = []
         list_of_activity_plan_close: list[_listview_item] = []
-
+        self.sleep()
         listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
 
         for item in listview_activity.items():
@@ -223,10 +223,11 @@ class AV_RCDQI(DesktopTask):
 
                 if array[0].text().startswith('Resolve Customs Data Quality Issues') and array[4].text() == 'Closed':
                     list_of_activity_plan_close.append(array[0])
-                    logger.info('Data Quality is closed before')
+                    logger.info('Data Quality is closed before by {}'.format(array[2]))
 
         # cover IF we have TPDOC - more than 1 row has Resolve Customs Data Quality Issues
         if len(list_of_activity_plan) > 1 or len(list_of_activity_plan_close) > 1:
+            logger.info('{} has TP Doc'.format(shipment))
             pyautogui.hotkey('alt', 'e')
             self.sleep()
             pyautogui.hotkey('left')

@@ -812,12 +812,6 @@ class GUIApp(QMainWindow):
                         "border-bottom: 0.5px solid #D4D4D4; border-radius: 0;background-color: #FFFFFF; padding: 2px; ")
                 setting_layout.addWidget(component)
 
-                underline = QFrame()
-                underline.setFrameShape(QFrame.HLine)
-                underline.setFrameShadow(QFrame.Sunken)
-                underline.setStyleSheet("background-color: #FF0000; height: 2px;")
-                setting_layout.addWidget(underline)
-
                 self.settings_layout.addWidget(setting_frame)
 
             self.automated_task.settings = self.current_task_settings
@@ -2257,14 +2251,19 @@ class GUIApp(QMainWindow):
                 "light": {
                     "background": "#FFFFFF",
                     "secondary_background": "#F0F0F0",
+                    "third_background": "D4D4D4",
                     "text": "#141414",
-                    "accent": "#003E62"
+                    "accent": "#42B0D5",
+                    "header": "#003E62",
                 },
                 "dark": {
-                    "background": "#141414",
-                    "secondary_background": "#363636",
+                    "background": "#363636",
+                    "secondary_background": "#6A6A6A",
+                    "third_background": "D4D4D4",
                     "text": "#FFFFFF",
-                    "accent": "#E2F3FB"
+                    "accent": "#42B0D5",
+                    "header": "#003E62",
+
                 }
             }
 
@@ -2274,14 +2273,17 @@ class GUIApp(QMainWindow):
             # Update main window components
             self.centralWidget().setStyleSheet(f"background-color: {selected_theme['background']};")
             self.header.setStyleSheet(
-                f"background-color: {selected_theme['accent']}; height: 50px; min-height: 50px; max-height: 50px;")
+                f"background-color: {selected_theme['header']}; height: 50px; min-height: 50px; max-height: 50px;"
+            )
             self.sidebar.setStyleSheet(f"background-color: {selected_theme['background']}; border: 0px;")
+
             self.settings_frame.setStyleSheet(
-                f"background-color: {selected_theme['background']}; border: 0px solid #D4D4D4; border-radius: 5px; padding: 10px;")
+                f"background-color: {selected_theme['secondary_background']}; border: none; border-radius: 5px; padding: 10px;"
+            )
             self.logging_textbox.setStyleSheet(f"""
                 QTextEdit {{
-                    background-color: {selected_theme['background']};
-                    border: 1px solid #D4D4D4;
+                    background-color: {selected_theme['secondary_background']};
+                    border: none;
                     border-radius: 5px;
                     padding: 5px;
                     color: {selected_theme['text']};
@@ -2290,15 +2292,28 @@ class GUIApp(QMainWindow):
                 }}
             """)
 
-            # Update sidebar buttons
+            self.progress_bar.setStyleSheet(f"""
+                QProgressBar {{
+                    background-color: {selected_theme['background']};
+                    border: none;
+                    border-radius: 5px;
+                    text-align: center;
+                    color: {selected_theme['text']};
+                }}
+                QProgressBar::chunk {{
+                    background-color: {selected_theme['accent']};
+                    border-radius: 5px;
+                }}
+            """)
+
             for i in range(self.sidebar_layout.count()):
                 widget = self.sidebar_layout.itemAt(i).widget()
                 if isinstance(widget, QPushButton):
                     if widget.text() in ["Website", "Desktop App", "Arbitrary"]:
                         widget.setStyleSheet(f"""
                             QPushButton {{
-                                background-color: {selected_theme['background']};
-                                color: #6A6A6A;
+                                background-color: none;
+                                color: {selected_theme['text']};
                                 padding: 8px 0 8px 10px;
                                 border: none;
                                 width: 100%;
@@ -2309,15 +2324,15 @@ class GUIApp(QMainWindow):
                                 white-space: normal;
                             }}
                             QPushButton:hover {{
-                                background-color: #F5F5F5;
-                                color: {selected_theme['text']};
+                                background-color: {selected_theme['accent']};
+                                color: #FFFFFF;
                             }}
                         """)
                     else:
                         widget.setStyleSheet(f"""
                             QPushButton {{
-                                background-color: {selected_theme['background']};
-                                color: {selected_theme['accent']};
+                                background-color: none;
+                                color: {selected_theme['text']};
                                 padding: 10px 0 10px 10px;
                                 border: none;
                                 width: 100%;
@@ -2328,8 +2343,8 @@ class GUIApp(QMainWindow):
                                 white-space: normal;
                             }}
                             QPushButton:hover {{
-                                color: #1686BD;
-                                background-color: #E0E0E0;
+                                background-color: {selected_theme['accent']};
+                                color: #FFFFFF;
                             }}
                         """)
 
@@ -2351,23 +2366,23 @@ class GUIApp(QMainWindow):
                     btn.setStyleSheet(f"""
                         QPushButton {{
                             background-color: {selected_theme['accent']};
-                            color: {selected_theme['text']};
+                            color: #FFFFFF;
                             padding: 5px 15px;
                             border: none;
                             border-radius: 5px;
                         }}
                         QPushButton:hover {{
-                            background-color: #42B0D5;
+                            background-color: #1686BD;
                         }}
                         QPushButton:pressed {{
-                            background-color: #1686BD;
+                            background-color: #003E62;
                         }}
                     """)
             if self.reset_button:
                 self.reset_button.setStyleSheet(f"""
                     QPushButton {{
                         background-color: {selected_theme['accent']};
-                        color: {selected_theme['text']};
+                        color: #FFFFFF;
                         padding: 5px 15px;
                         border: none;
                         border-radius: 5px;
@@ -2376,7 +2391,7 @@ class GUIApp(QMainWindow):
                         background-color: #EA5D4B;
                     }}
                     QPushButton:pressed {{
-                        background-color: #1686BD;
+                        background-color: #981F19;
                     }}
                 """)
 
