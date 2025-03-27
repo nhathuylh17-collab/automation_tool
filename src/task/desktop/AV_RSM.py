@@ -219,7 +219,7 @@ class AV_RSM(DesktopTask):
 
                 if array[0].text().startswith('Resolve Seal Mismatch') and array[4].text() == 'Closed':
                     list_of_activity_plan_seal_closed.append(array[0])
-                    logger.info('Seal Mismatch is closed before by {}'.format(array[2]))
+                    logger.info('Seal Mismatch is closed before by {}'.format(array[2].text()))
 
         # cover case TPDOC - more than 1 row Seal Mismatch is closed before
         if len(list_of_activity_plan_seal) > 1 or len(list_of_activity_plan_seal_closed) > 1:

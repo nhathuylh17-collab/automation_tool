@@ -223,7 +223,7 @@ class AV_RCDQI(DesktopTask):
 
                 if array[0].text().startswith('Resolve Customs Data Quality Issues') and array[4].text() == 'Closed':
                     list_of_activity_plan_close.append(array[0])
-                    logger.info('Data Quality is closed before by {}'.format(array[2]))
+                    logger.info('Data Quality is closed before by {}'.format(array[2].text()))
 
         # cover IF we have TPDOC - more than 1 row has Resolve Customs Data Quality Issues
         if len(list_of_activity_plan) > 1 or len(list_of_activity_plan_close) > 1:
