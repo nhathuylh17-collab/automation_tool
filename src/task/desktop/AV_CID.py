@@ -4,7 +4,7 @@ from typing import Callable, Iterator
 import pyautogui
 import pygetwindow as gw
 from pywinauto import Application, WindowSpecification
-from pywinauto.controls.common_controls import ListViewWrapper, _listview_item
+from pywinauto.controls.common_controls import ListViewWrapper, _listview_item, _treeview_element, TreeViewWrapper
 from pywinauto.controls.win32_controls import ComboBoxWrapper, ButtonWrapper, EditWrapper
 
 from src.common.FileUtil import get_excel_data_in_column_start_at_row
@@ -15,7 +15,7 @@ from src.excel_reader_provider.XlwingProvider import XlwingProvider
 from src.task.DesktopTask import DesktopTask
 
 
-class GCSS_SCID(DesktopTask):
+class AV_CID(DesktopTask):
 
     def __init__(self, settings: dict[str, str], callback_before_run_task: Callable[[], None]):
         super().__init__(settings, callback_before_run_task)
@@ -25,7 +25,7 @@ class GCSS_SCID(DesktopTask):
         self.current_status_excel_row_index: int = 0
 
     def mandatory_settings(self) -> list[str]:
-        mandatory_keys: list[str] = ['excel.path', 'excel.sheet', 'excel.shipment', 'excel.status.address',
+        mandatory_keys: list[str] = ['excel.path', 'excel.sheet', 'excel.shipment',
                                      'excel.status.cell']
         return mandatory_keys
 
@@ -42,9 +42,6 @@ class GCSS_SCID(DesktopTask):
         shipments: list[str] = get_excel_data_in_column_start_at_row(self._settings['excel.path'],
                                                                      self._settings['excel.sheet'],
                                                                      self._settings['excel.shipment'])
-        status_address: list[str] = get_excel_data_in_column_start_at_row(self._settings['excel.path'],
-                                                                          self._settings['excel.sheet'],
-                                                                          self._settings['excel.status.address'])
 
         col, row = extract_row_col_from_cell_pos_format(self._settings['excel.status.cell'])
         self.current_status_excel_col_index: int = int(self.get_letter_position(col))
@@ -70,43 +67,72 @@ class GCSS_SCID(DesktopTask):
                 if self.terminated is True:
                     return
 
+            self._wait_for_window('Pending Tray')
+            self._window_title_stack.append('Pending Tray')
             logger.info("Start process shipment " + shipment)
 
             try:
-                if status_address[i] != "ADDRESS MATCHED":
-                    logger.info(f"Skipping shipment {shipment} due to status: {status_address[i]}")
-                    self.input_status_into_excel('Skip')
-                    self.excel_provider.save(workbook)
-                    self.current_status_excel_row_index += 1
-                    self.current_element_count += 1
-                    continue
-
+                #     try to interface and open shipment
                 pyautogui.hotkey('ctrl', 'o')
+                pyautogui.hotkey('shift', 'tab')
+                pyautogui.typewrite('Shipment')
+                pyautogui.hotkey('tab')
                 pyautogui.typewrite(shipment)
                 pyautogui.hotkey('tab')
                 pyautogui.hotkey('enter')
                 self.sleep()
-                self.process_on_each_shipment(shipment)
-                self.input_status_into_excel('Done')
-                self.excel_provider.save(workbook)
+                self._wait_for_window(shipment)
+                self._window_title_stack.append(shipment)
+                try:
+                    #     try to handle shipment
+                    self.process_on_each_shipment(shipment)
+                    try:
+                        # try to save excel if shipment can be handled
+                        self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                            2,
+                                                            'Done')
+                        self.current_status_excel_row_index += 1
+                        self.current_element_count += 1
+                        self.excel_provider.save(workbook)
+                        logger.info("Done with shipment " + shipment)
 
-                logger.info("Done with shipment " + shipment)
+                    except Exception as e:
+                        print('Cannot handle shipment {}, please try later'.format(shipment))
+
+                # In case CNEE SCV is not maintained yet
+                except SkipToNextShipment:
+                    try:
+                        # try to save excel and skip shipment
+                        self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                            2,
+                                                            'Skip')
+                        self.current_status_excel_row_index += 1
+                        self.current_element_count += 1
+                        self.excel_provider.save(workbook)
+                    except Exception as e:
+                        print("Skip " + shipment)
+
 
             except Exception:
-
-                self.input_status_into_excel('An exception error')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    2,
+                                                    'Cannot handle shipment {}, please try later'.format(shipment))
                 self.excel_provider.save(workbook)
-                logger.info(f'Cannot handle shipment {shipment}. Moving to next shipment')
-                self._wait_for_window('Pending Tray')
+                logger.info(f'Cannot handle shipment {shipment}, please try later. Moving to next shipment')
+
+                self._wait_for_window("Pending Tray")
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
                 continue
 
-            self.current_status_excel_row_index += 1
-            self.current_element_count += 1
-
-        self.excel_provider.save(workbook)
-        self.excel_provider.close(workbook)
+        try:
+            self.excel_provider.save(workbook)
+        except Exception as e:
+            logger.debug("Cannot save excel file")
+        finally:
+            # release file excel tránh bị cannot run in backround
+            self.excel_provider.close(workbook)
+            self.excel_provider.quit_session()
 
     def process_on_each_shipment(self, shipment):
 
@@ -125,6 +151,13 @@ class GCSS_SCID(DesktopTask):
         self._app: Application = Application().connect(title=self._window_title_stack.peek())
         self._window: WindowSpecification = self._app.window(title=self._window_title_stack.peek())
 
+        self.sleep()
+        pyautogui.hotkey("ctrl", "k")
+
+        # check vessel
+        self.check_status_vessel(shipment)
+
+        # check parties
         self.into_parties_tab()
 
         'Get Cnee Name in 2nd window'
@@ -222,7 +255,7 @@ class GCSS_SCID(DesktopTask):
             button_right.click()
             status_shipment: str = "Validation failed !"
             self.input_status_into_excel(status_shipment)
-            self._close_windows_util_reach_first_gscc()
+            self._wait_for_window('Pending Tray')
             raise Exception('Validation failed !')
 
         # Click complete collect button _ in Maintain Pricing and Invoicing window
@@ -399,3 +432,56 @@ class GCSS_SCID(DesktopTask):
                 return
         except Exception as e:
             pass
+
+    def check_status_vessel(self, shipment):
+        logger: Logger = get_current_logger()
+        self._wait_for_window(shipment)
+        self._window_title_stack.append(shipment)
+
+        while True:
+            self.sleep()
+            pyautogui.hotkey('ctrl', 'k')
+            self.sleep()
+
+            tree_views: list[TreeViewWrapper] = self._window.children(class_name="SysTreeView32")
+            list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
+
+            if tree_views.__len__() == 1 and list_views.__len__() == 2:
+                break
+            self.sleep()
+
+        tree_view: TreeViewWrapper = tree_views[0]
+        root_items: list[_treeview_element] = tree_view.roots()
+        # target_root: _treeview_element = root_items[0]
+        # child_items = target_root.children()
+
+        found_mvs = False
+        for target_root in root_items:
+            target_text = target_root.select().text()
+
+            if "MVS" in target_text:
+                found_mvs = True
+                logger.info('Has MVS')
+                children = target_root.children()
+                break
+        if not found_mvs:
+            raise SkipToNextShipment
+        eta_found = False
+
+        for child in target_root.children():
+            item_text = child.text()
+            if item_text.startswith("ETA: ") and len(item_text) > 5:  # Check if "ETD: " has data after it
+                eta_found = True
+                logger.info(f"Vessel status check passed for shipment {shipment}")
+                break
+
+        if not eta_found:
+            logger.info(f"No valid ETA found for shipment {shipment}")
+            raise SkipToNextShipment()
+
+        # If we reach here, ETD was found with a value, so we can proceed
+        logger.info(f"Continuing with shipment {shipment} processing")
+
+
+class SkipToNextShipment(Exception):
+    pass

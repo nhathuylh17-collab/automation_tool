@@ -124,9 +124,9 @@ class AV_RCDQI(DesktopTask):
             except Exception:
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
-                                                    'Cannot handle shipment {}, please check manual'.format(shipment))
+                                                    'Cannot handle shipment {}, please try later'.format(shipment))
                 self.excel_provider.save(workbook)
-                logger.info(f'Cannot handle shipment {shipment}. Moving to next shipment')
+                logger.info(f'Cannot handle shipment {shipment}, please try later. Moving to next shipment')
 
                 self._wait_for_window("Pending Tray")
                 self.current_status_excel_row_index += 1

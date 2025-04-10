@@ -2053,9 +2053,9 @@ class GUIApp(QMainWindow):
 
         except requests.RequestException as e:
             status_label.setText(
-                "Failed to check for updates"
+                "Failed to check for updates."
 
-                "Contact Developer: HNL014 - huy.le@lns.maersk.com")
+                " Contact Developer: HNL014 - huy.le@lns.maersk.com")
             self.logger.error(f"Error checking updates: {str(e)}")
 
     def download_update(self, download_url, username, token, status_label):
@@ -2278,7 +2278,7 @@ class GUIApp(QMainWindow):
             self.sidebar.setStyleSheet(f"background-color: {selected_theme['background']}; border: 0px;")
 
             self.settings_frame.setStyleSheet(
-                f"background-color: {selected_theme['secondary_background']}; border: none; border-radius: 5px; padding: 10px;"
+                f"background-color: none; border: none; border-radius: 5px; padding: 10px;"
             )
             self.logging_textbox.setStyleSheet(f"""
                 QTextEdit {{
@@ -2309,44 +2309,24 @@ class GUIApp(QMainWindow):
             for i in range(self.sidebar_layout.count()):
                 widget = self.sidebar_layout.itemAt(i).widget()
                 if isinstance(widget, QPushButton):
-                    if widget.text() in ["Website", "Desktop App", "Arbitrary"]:
-                        widget.setStyleSheet(f"""
-                            QPushButton {{
-                                background-color: none;
-                                color: {selected_theme['text']};
-                                padding: 8px 0 8px 10px;
-                                border: none;
-                                width: 100%;
-                                text-align: left;
-                                font-weight: normal;
-                                min-width: 0;
-                                max-width: 100%;
-                                white-space: normal;
-                            }}
-                            QPushButton:hover {{
-                                background-color: {selected_theme['accent']};
-                                color: #FFFFFF;
-                            }}
-                        """)
-                    else:
-                        widget.setStyleSheet(f"""
-                            QPushButton {{
-                                background-color: none;
-                                color: {selected_theme['text']};
-                                padding: 10px 0 10px 10px;
-                                border: none;
-                                width: 100%;
-                                text-align: left;
-                                font-weight: bold;
-                                min-width: 0;
-                                max-width: 100%;
-                                white-space: normal;
-                            }}
-                            QPushButton:hover {{
-                                background-color: {selected_theme['accent']};
-                                color: #FFFFFF;
-                            }}
-                        """)
+                    widget.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: none;
+                            color: {selected_theme['text']};
+                            padding: 8px 0 8px 10px;
+                            border: none;
+                            width: 100%;
+                            text-align: left;
+                            font-weight: normal;
+                            min-width: 0;
+                            max-width: 100%;
+                            white-space: normal;
+                        }}
+                        QPushButton:hover {{
+                            background-color: {selected_theme['accent']};
+                            color: #FFFFFF;
+                        }}
+                    """)
 
             # Update right frame and content with safety checks
             splitter = self.centralWidget().findChild(QSplitter)
