@@ -1,10 +1,12 @@
+import time
 from logging import Logger
 from typing import Callable, Iterator
 
 import pyautogui
 import pygetwindow as gw
 from pywinauto import Application, WindowSpecification
-from pywinauto.controls.common_controls import ListViewWrapper, _listview_item, _treeview_element, TreeViewWrapper
+from pywinauto.controls.common_controls import ListViewWrapper, _listview_item, _treeview_element, TreeViewWrapper, \
+    TabControlWrapper
 from pywinauto.controls.win32_controls import ComboBoxWrapper, ButtonWrapper, EditWrapper
 
 from src.common.FileUtil import get_excel_data_in_column_start_at_row
@@ -100,12 +102,12 @@ class AV_CID(DesktopTask):
                         print('Cannot handle shipment {}, please try later'.format(shipment))
 
                 # In case CNEE SCV is not maintained yet
-                except SkipToNextShipment:
+                except SkipToNextShipment_novessel:
                     try:
                         # try to save excel and skip shipment
                         self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                             2,
-                                                            'Skip')
+                                                            'Not found vessel')
                         self.current_status_excel_row_index += 1
                         self.current_element_count += 1
                         self.excel_provider.save(workbook)
@@ -158,15 +160,29 @@ class AV_CID(DesktopTask):
         self.check_status_vessel(shipment)
 
         # check parties
-        self.into_parties_tab()
+        self.into_parties_tab(shipment)
 
         'Get Cnee Name in 2nd window'
         cnee_name: str = self.get_consignee()
+        self.get_notify_parties()
+
         if cnee_name is None:
+            # get notify party SVC to create CNEE
+            self.get_notify_parties()
+
             message_cnee = f'Cannot find CNEE name of the shipment {shipment} in 1st window - Ctrl R'
             logger.info(message_cnee)
+
             self.input_status_into_excel(message_cnee)
-            self._close_windows_util_reach_first_gscc()
+
+            pyautogui.hotkey('alt', 'e')
+            self.sleep()
+            pyautogui.hotkey('left')
+            self.sleep()
+            pyautogui.hotkey('c')
+            self.sleep()
+            self._wait_for_window('Pending Tray')
+
             return
 
         invoice_parties: set[str] = self.get_invoice_parties()
@@ -323,9 +339,12 @@ class AV_CID(DesktopTask):
 
             self.sleep()
 
-    def into_parties_tab(self):
+    def into_parties_tab(self, shipment):
 
         while True:
+            self._wait_for_window(shipment)
+            self._window_title_stack.append(shipment)
+
             pyautogui.hotkey('ctrl', 'r')
             list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
             if list_views.__len__() == 2:
@@ -356,12 +375,26 @@ class AV_CID(DesktopTask):
         return cre_parties_values
 
     def get_consignee(self) -> str:
+        logger: Logger = get_current_logger()
         consignees: list[_listview_item] = self.get_party_info("Consignee")
         if len(consignees) == 0:
             return None
 
         consignees[0].select()
+
+        edit_text = self.get_edit_text()
+
+        if edit_text:
+            logger.info(f"Extracted Edit text: {edit_text}")
         return consignees[0].text()
+
+    def get_notify_parties(self) -> set[str]:
+        notify_party: list[_listview_item] = self.get_party_info("Notify Party")
+        if len(notify_party) == 0:
+            return None
+
+        notify_party[0].select()
+        return notify_party[0].text()
 
     def get_party_info(self, party_name: str) -> list[_listview_item]:
         logger: Logger = get_current_logger()
@@ -465,23 +498,47 @@ class AV_CID(DesktopTask):
                 children = target_root.children()
                 break
         if not found_mvs:
-            raise SkipToNextShipment
+            raise SkipToNextShipment_novessel
         eta_found = False
 
         for child in target_root.children():
             item_text = child.text()
             if item_text.startswith("ETA: ") and len(item_text) > 5:  # Check if "ETD: " has data after it
                 eta_found = True
-                logger.info(f"Vessel status check passed for shipment {shipment}")
+                logger.info(f"Vessel checked for shipment {shipment}")
                 break
 
         if not eta_found:
             logger.info(f"No valid ETA found for shipment {shipment}")
-            raise SkipToNextShipment()
+            raise SkipToNextShipment_novessel()
 
         # If we reach here, ETD was found with a value, so we can proceed
         logger.info(f"Continuing with shipment {shipment} processing")
 
+    def print_all_controls(self, control, depth=0):
+        """Recursively print all controls and their children."""
+        try:
+            # Print the current control's details
+            print("  " * depth + f"Class Name: {control.class_name()}, "
+                                 f"Text: {control.window_text()}, "
+                                 f"Control ID: {control.control_id()}")
 
-class SkipToNextShipment(Exception):
+            # Recursively print all children of the current control
+            for child in control.children():
+                self.print_all_controls(child, depth + 1)
+        except Exception as e:
+            print("  " * depth + f"Error accessing control: {e}")
+
+    def get_edit_text(self):
+        tab_control: TabControlWrapper = self._window.children(class_name="SysTabControl32")[0]
+
+        if tab_control:
+            print('abc')
+            for text_item in tab_control.__doc__:
+                pass
+        time.sleep(10000)
+        return tab_control.texts()
+
+
+class SkipToNextShipment_novessel(Exception):
     pass

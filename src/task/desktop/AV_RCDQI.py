@@ -41,10 +41,6 @@ class AV_RCDQI(DesktopTask):
                                                                      self._settings['excel.sheet'],
                                                                      self._settings['excel.shipment'])
 
-        # col, row = extract_row_col_from_cell_pos_format(self._settings['excel.status.cell'])
-        # self.current_status_excel_col_index: int = int(self.get_letter_position(col))
-        # self.current_status_excel_row_index: int = int(row)
-
         self._wait_for_window('Pending Tray')
         self._window_title_stack.append('Pending Tray')
 
@@ -97,18 +93,6 @@ class AV_RCDQI(DesktopTask):
                     except Exception as e:
                         print("Error handle with shipment " + shipment)
 
-                except SkipToNextShipment:
-                    try:
-                        # try to save excel and skip shipment
-                        self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
-                                                            2,
-                                                            'Skip')
-                        self.current_status_excel_row_index += 1
-                        self.current_element_count += 1
-                        self.excel_provider.save(workbook)
-                    except Exception as e:
-                        print("Skip " + shipment)
-
                 except SkipTPDOC:
                     try:
                         # try to save excel and skip shipment
@@ -127,6 +111,7 @@ class AV_RCDQI(DesktopTask):
                                                     'Cannot handle shipment {}, please try later'.format(shipment))
                 self.excel_provider.save(workbook)
                 logger.info(f'Cannot handle shipment {shipment}, please try later. Moving to next shipment')
+                logger.info(Exception)
 
                 self._wait_for_window("Pending Tray")
                 self.current_status_excel_row_index += 1
@@ -293,10 +278,6 @@ class AV_RCDQI(DesktopTask):
             for item in menu_items:
                 logger.debug(f"  - {item.text()}")
                 logger.info('cannot select')
-
-
-class SkipToNextShipment(Exception):
-    pass
 
 
 class SkipTPDOC(Exception):

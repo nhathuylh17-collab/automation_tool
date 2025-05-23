@@ -92,18 +92,6 @@ class AV_RSM(DesktopTask):
                     except Exception as e:
                         print("Error handle with shipment " + shipment)
 
-                except SkipToNextShipment:
-                    try:
-                        # try to save excel and skip shipment
-                        self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
-                                                            2,
-                                                            'Skip')
-                        self.current_status_excel_row_index += 1
-                        self.current_element_count += 1
-                        self.excel_provider.save(workbook)
-                    except Exception as e:
-                        print("Skip " + shipment)
-
                 except SkipTPDOC:
                     try:
                         # try to save excel and skip shipment
@@ -284,10 +272,6 @@ class AV_RSM(DesktopTask):
             for item in menu_items:
                 logger.debug(f"  - {item.text()}")
                 logger.info('Cannot select')
-
-
-class SkipToNextShipment(Exception):
-    pass
 
 
 class SkipTPDOC(Exception):

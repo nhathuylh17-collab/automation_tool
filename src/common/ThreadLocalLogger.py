@@ -46,7 +46,7 @@ def create_logger(class_name: str, thread_uuid: str, logging_console_level: int 
     console_handler.setLevel(logging_console_level)
 
     formatter: Formatter = logging.Formatter(
-        '{} - %(asctime)s - %(levelname)s - %(filename)s %(funcName)s#%(lineno)d: %(message)s'.format(thread_uuid))
+        '%(asctime)s: %(message)s')
     file_handler.setFormatter(formatter)
     console_handler.setFormatter(formatter)
 

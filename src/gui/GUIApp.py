@@ -2194,24 +2194,6 @@ class GUIApp(QMainWindow):
             return {}
         return load_key_value_from_file_properties(setting_file)
 
-    # def save_general_settings(self):
-    #     general_settings = {}
-    #     default_path_input = self.findChild(QLineEdit, "default_path_input")
-    #     if default_path_input:
-    #         general_settings['default_path'] = default_path_input.text()
-    #     log_level_combo = self.findChild(QComboBox, "log_level_combo")
-    #     if log_level_combo:
-    #         general_settings['log_level'] = log_level_combo.currentText()
-    #     theme_combo = self.findChild(QComboBox, "theme_combo")
-    #     if theme_combo:
-    #         general_settings['theme'] = theme_combo.currentText()
-    #
-    #     setting_file = os.path.join(PathResolvingService.get_instance().get_input_dir(), 'general.properties')
-    #     with open(setting_file, 'w') as f:
-    #         for key, value in general_settings.items():
-    #             f.write(f"{key}={value}\n")
-    #     QMessageBox.information(self, "Settings Saved", "General settings have been saved.")
-
     def update_button_states(self):
         has_task = self.current_task_name is not None and self.automated_task is not None
         running_task = has_task and self.automated_task.is_alive() if has_task else False

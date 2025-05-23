@@ -30,9 +30,11 @@ class GCSS_SPIR(DesktopTask):
 
     def automate(self):
         logger: Logger = get_current_logger()
+
         self.excel_provider: ExcelReaderProvider = XlwingProvider()
         path_to_excel = self._settings['excel.path']
         workbook = self.excel_provider.get_workbook(path=path_to_excel)
+
         logger.info('Loading excel files')
 
         sheet_name: str = self._settings['excel.sheet']
@@ -50,6 +52,8 @@ class GCSS_SPIR(DesktopTask):
 
         for i, shipment in enumerate(shipments):
             self._wait_for_window('Pending Tray')
+
+            # dont have to care about this, just only apply for progress bar in GUI APP
             if self.terminated is True:
                 return
 
@@ -62,6 +66,7 @@ class GCSS_SPIR(DesktopTask):
                 if self.terminated is True:
                     return
 
+            # return to code
             logger.info("Start process shipment " + shipment)
 
             try:
