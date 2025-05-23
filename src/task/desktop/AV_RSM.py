@@ -8,12 +8,13 @@ from pywinauto.controls.common_controls import ListViewWrapper, _listview_item
 
 from src.common.FileUtil import get_excel_data_in_column_start_at_row
 from src.common.ThreadLocalLogger import get_current_logger
+from src.common.exception.SkipTPDOC import SkipTPDOC
 from src.excel_reader_provider.ExcelReaderProvider import ExcelReaderProvider
 from src.excel_reader_provider.XlwingProvider import XlwingProvider
-from src.task.DesktopTask import DesktopTask
+from src.task.GCSSTask import GCSSTask
 
 
-class AV_RSM(DesktopTask):
+class AV_RSM(GCSSTask):
 
     def __init__(self, settings: dict[str, str], callback_before_run_task: Callable[[], None]):
         super().__init__(settings, callback_before_run_task)
@@ -24,10 +25,15 @@ class AV_RSM(DesktopTask):
         self.current_status_excel_row_index: int = 5
 
     def mandatory_settings(self) -> list[str]:
-        mandatory_keys: list[str] = ['excel.path', 'excel.sheet', 'excel.shipment', 'excel.status.cell']
+        desktop_mandatory_keys: list[str] = super().mandatory_settings()
+        mandatory_keys: list[str] = ['excel.path',
+                                     'excel.sheet',
+                                     'excel.shipment',
+                                     'excel.status.cell']
+        mandatory_keys.extend(desktop_mandatory_keys)
         return mandatory_keys
 
-    def automate(self):
+    def automate_gcss(self):
         logger: Logger = get_current_logger()
         self.excel_provider: ExcelReaderProvider = XlwingProvider()
         path_to_excel = self._settings['excel.path']
@@ -41,11 +47,11 @@ class AV_RSM(DesktopTask):
                                                                      self._settings['excel.sheet'],
                                                                      self._settings['excel.shipment'])
 
-        self._wait_for_window('Pending Tray')
-        self._window_title_stack.append('Pending Tray')
-
         self.current_element_count = 0
         self.total_element_size = len(shipments)
+
+        self._wait_for_window('Pending Tray')
+        self._window_title_stack.append('Pending Tray')
 
         for i, shipment in enumerate(shipments):
             if self.terminated is True:
@@ -59,8 +65,12 @@ class AV_RSM(DesktopTask):
 
                 if self.terminated is True:
                     return
+
+            print('START_FLOW current gcss process count {}'.format(len(self._get_matching_processes('GCSS'))))
+            if len(self._get_matching_processes('GCSS')) == 0:
+                self._pre_actions()
+
             self._wait_for_window('Pending Tray')
-            self._window_title_stack.append('Pending Tray')
 
             logger.info("Start process shipment " + shipment)
 
@@ -76,52 +86,53 @@ class AV_RSM(DesktopTask):
                 self.sleep()
                 self._wait_for_window(shipment)
 
-                try:
-                    #     try to handle shipment
-                    self.process_on_each_shipment(shipment)
-                    try:
-                        # try to save excel if shipment can be handled
-                        self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
-                                                            2,
-                                                            'Done')
-                        self.current_status_excel_row_index += 1
-                        self.current_element_count += 1
-                        self.excel_provider.save(workbook)
-                        logger.info("Done with shipment " + shipment)
-
-                    except Exception as e:
-                        print("Error handle with shipment " + shipment)
-
-                except SkipTPDOC:
-                    try:
-                        # try to save excel and skip shipment
-                        self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
-                                                            2,
-                                                            'Have TPDoc')
-                        self.current_status_excel_row_index += 1
-                        self.current_element_count += 1
-                        self.excel_provider.save(workbook)
-                    except Exception as e:
-                        print("TP Doc " + shipment)
-
-            except Exception:
+                self.process_on_each_shipment(shipment)
+                # try to save excel if shipment can be handled
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
-                                                    'Cannot handle shipment {}, please check manual'.format(shipment))
+                                                    'Done')
+                self.current_status_excel_row_index += 1
+                self.current_element_count += 1
                 self.excel_provider.save(workbook)
-                logger.info(f'Cannot handle shipment {shipment}. Moving to next shipment')
+                logger.info("Done with shipment " + shipment)
 
-                self._wait_for_window("Pending Tray")
+                print(
+                    'END_FLOW current gcss process count {}'.format(len(self._get_matching_processes('GCSS'))))
+
+            except SkipTPDOC:
+                logger.error(f'Face an TP doc exception {shipment}')
+                # try to save excel and skip shipment
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    2,
+                                                    'Have TPDoc')
+                self.current_status_excel_row_index += 1
+                self.current_element_count += 1
+                self.excel_provider.save(workbook)
+                continue
+
+            except BaseException as e:
+
+                logger.info(f'Cannot handle shipment {shipment}. \n {e} \nMoving to next shipment')
+
+                if len(self._get_matching_processes('GCSS')) == 0:
+                    self._pre_actions()
+                else:
+                    self._close_windows_util_reach_first_gscc()
+
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    2,
+                                                    'Cannot handle shipment {}, please check manual'.format(
+                                                        shipment))
+                self.excel_provider.save(workbook)
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
                 continue
 
         try:
             self.excel_provider.save(workbook)
-        except Exception as e:
+        except BaseException as e:
             logger.debug("Cannot save excel file")
         finally:
-            # release file excel tránh bị cannot run in backround
             self.excel_provider.close(workbook)
             self.excel_provider.quit_session()
 
@@ -146,8 +157,6 @@ class AV_RSM(DesktopTask):
 
     def into_activity_shipment(self, shipment):
         logger: Logger = get_current_logger()
-        self._wait_for_window(shipment)
-        self._window_title_stack.append(shipment)
 
         while True:
             pyautogui.hotkey('ctrl', 't')
@@ -181,9 +190,11 @@ class AV_RSM(DesktopTask):
                     self.sleep()
         runner = 0
         capture_tasks = False
+
         self.sleep()
         array = [None for _ in range(6)]
         self.sleep()
+
         list_of_activity_plan_seal: list[_listview_item] = []
         list_of_activity_plan_seal_closed: list[_listview_item] = []
         listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
@@ -211,25 +222,13 @@ class AV_RSM(DesktopTask):
 
         # cover case TPDOC - more than 1 row Seal Mismatch is closed before
         if len(list_of_activity_plan_seal) > 1 or len(list_of_activity_plan_seal_closed) > 1:
-            pyautogui.hotkey('alt', 'e')
-            self.sleep()
-            pyautogui.hotkey('left')
-            self.sleep()
-            pyautogui.hotkey('c')
-            self.sleep()
-            self._wait_for_window('Pending Tray')
-            raise SkipTPDOC
+            self._close_windows_util_reach_first_gscc()
+            raise SkipTPDOC()
 
         # cover case TPDOC - 1 is opened and 1 is closed - total 2 row
         if len(list_of_activity_plan_seal) == 1 and len(list_of_activity_plan_seal_closed) == 1:
-            pyautogui.hotkey('alt', 'e')
-            self.sleep()
-            pyautogui.hotkey('left')
-            self.sleep()
-            pyautogui.hotkey('c')
-            self.sleep()
-            self._wait_for_window('Pending Tray')
-            raise SkipTPDOC
+            self._close_windows_util_reach_first_gscc()
+            raise SkipTPDOC()
 
         # normal shipment
         for plan_seal in list_of_activity_plan_seal:
@@ -243,15 +242,7 @@ class AV_RSM(DesktopTask):
                 if list_views.__len__() == 1:
                     break
                 self.sleep()
-
-        # self.select_menu_item("File")
-        pyautogui.hotkey('alt', 'e')
-        self.sleep()
-        pyautogui.hotkey('left')
-        self.sleep()
-        pyautogui.hotkey('c')
-        self.sleep()
-        self._wait_for_window('Pending Tray')
+        self._close_windows_util_reach_first_gscc()
 
     def select_menu_item(self, menu_item_name):
         """
@@ -272,7 +263,3 @@ class AV_RSM(DesktopTask):
             for item in menu_items:
                 logger.debug(f"  - {item.text()}")
                 logger.info('Cannot select')
-
-
-class SkipTPDOC(Exception):
-    pass

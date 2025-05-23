@@ -1,6 +1,9 @@
+from logging import Logger
+
 import xlwings as xw
 from xlwings import App, Book
 
+from src.common.ThreadLocalLogger import get_current_logger
 from src.excel_reader_provider.ExcelReaderProvider import ExcelReaderProvider
 
 
@@ -35,7 +38,15 @@ class XlwingProvider(ExcelReaderProvider):
         return True
 
     def save(self, workbook):
-        workbook.save()
+        logger: Logger = get_current_logger()
+        try:
+            workbook.save()
+        except Exception as e:
+            # save to a temp name
+            # remove the original name
+            # rename the new file
+            # workbook.save(os.path.join(workbook))
+            logger.error(f'Can not save the workbook, exception details: {e}')
 
     def close(self, workbook: Book):
         path_to_workbook: str = workbook.fullname

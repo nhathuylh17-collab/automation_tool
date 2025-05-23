@@ -1,9 +1,7 @@
 import copy
-import os
 import re
 import zipfile
 from datetime import datetime, timedelta
-from logging import Logger
 from typing import Callable
 
 import openpyxl
@@ -222,29 +220,104 @@ def find_module(current_path: str, task_name: str) -> str | None:
     return None
 
 
+import os
+from logging import Logger, getLogger
+
+
+def walk_with_level(dir_path: str):
+    """
+    Yields directory levels, root paths, and files, skipping __pycache__ directories.
+
+    Args:
+        dir_path: Directory path to start walking from.
+
+    Yields:
+        Tuple of (level, root, files) where level is the depth relative to dir_path.
+    """
+    # Normalize dir_path to handle trailing slashes and get absolute path
+    dir_path = os.path.abspath(dir_path)
+
+    for root, _, files in os.walk(dir_path):
+        # Skip __pycache__ directories
+        if os.path.basename(root) == '__pycache__':
+            continue
+
+        # Calculate level by counting separators relative to dir_path
+        level = root[len(dir_path):].count(os.sep)
+        yield level, root, files
+
+
+def get_files_names_in_dir(dir_path: str,
+                           file_extension: str,
+                           excluded_file_names: set[str] = {},
+                           since_level: int = 0) -> set[str]:
+    """
+    Gets all file names recursively in the provided directory, filtered by extension and level.
+
+    Args:
+        dir_path: Directory to search for files.
+        file_extension: File extension to filter (e.g., '.py').
+        excluded_file_names: Set of file names (without extension) to exclude.
+        since_level: Minimum directory level to include files from (0 is root).
+
+    Returns:
+        A set of file names (without extension) matching the criteria.
+
+    Raises:
+        ValueError: If since_level is negative or dir_path is invalid.
+    """
+    logger: Logger = getLogger(__name__)
+
+    if since_level < 0:
+        raise ValueError("since_level must be non-negative")
+
+    if not os.path.isdir(dir_path):
+        raise ValueError(f"Directory {dir_path} does not exist or is not a directory")
+
+    # Default to .py if file_extension is None
+    file_extension = file_extension or ".py"
+    file_names: set[str] = set()
+
+    for level, root, files in walk_with_level(dir_path):
+        # Include files only at or below since_level
+        if level < since_level:
+            continue
+
+        for file in files:
+            # Log for debugging (optional, can be removed or adjusted)
+            logger.debug(f"Processing file: {file} at level {level}")
+
+            # Check file extension (case-insensitive)
+            if not file.lower().endswith(file_extension.lower()):
+                continue
+
+            # Remove extension and add to set
+            clean_name = os.path.splitext(file)[0]
+            file_names.add(clean_name)
+
+    # Exclude specified file names, if any
+    if excluded_file_names:
+        file_names -= excluded_file_names
+
+    return file_names
+
+
 def get_all_concrete_task_names() -> list[str]:
-    discarded_task_names: set[str] = {"__init__", "AutomatedTask", "DesktopTask", "WebTask"}
-    concrete_task_names: set[str] = get_files_names_in_dir(dir_path=PathResolvingService.get_instance().get_task_dir(),
-                                                           file_extension='.py',
-                                                           excluded_file_names=discarded_task_names)
+    """
+    Gets sorted list of Python file names (without .py) from task directory, excluding certain names.
+
+    Returns:
+        Sorted list of file names (without extension) starting from level 1.
+    """
+    discarded_task_names: set[str] = {"__init__"}
+    concrete_task_names: set[str] = get_files_names_in_dir(
+        dir_path=PathResolvingService.get_instance().get_task_dir(),
+        file_extension='.py',
+        excluded_file_names=discarded_task_names,
+        since_level=1
+    )
     return sorted(list(concrete_task_names))
 
 
-def get_files_names_in_dir(dir_path: str, file_extension: str, excluded_file_names: set[str]) -> set[str]:
-    logger: Logger = get_current_logger()
-
-    if file_extension is None:
-        file_extension = ".py"
-
-    file_names: set[str] = set()
-    for root, _, files in os.walk(dir_path):
-        for file in files:
-            logger.warning(file)
-            if file.lower().endswith(file_extension):
-                clean_name = file.replace(".py", "")
-                file_names.add(clean_name)
-
-    if excluded_file_names is None or excluded_file_names.__len__() == 0:
-        return file_names
-
-    return file_names - excluded_file_names
+if __name__ == '__main__':
+    print(get_all_concrete_task_names())

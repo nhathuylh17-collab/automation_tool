@@ -1,0 +1,2 @@
+class SkipTPDOC(Exception):
+    pass
