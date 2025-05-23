@@ -6,6 +6,7 @@ import pyautogui
 from pywinauto import Application, WindowSpecification
 from pywinauto.controls.win32_controls import ComboBoxWrapper
 
+from src.common.ProcessUtil import get_matching_processes, kill_processes
 from src.common.ThreadLocalLogger import get_current_logger
 from src.task.DesktopTask import DesktopTask
 
@@ -21,7 +22,7 @@ class GCSSTask(DesktopTask):
             self.automate_gcss()
             self._post_actions()
         finally:
-            self._kill_processes('GCSS')
+            kill_processes('GCSS')
 
     @abstractmethod
     def automate_gcss(self):
@@ -31,8 +32,8 @@ class GCSSTask(DesktopTask):
         # check the current windows whether it contains the GCSS already
         # only open when the result is No
         # If yes then go back to the initial stage/page of the GCSS
-        if len(self._get_matching_processes('GCSS')) > 0:
-            self._kill_processes('GCSS')
+        if len(get_matching_processes('GCSS')) > 0:
+            kill_processes('GCSS')
 
         self._open_the_gcss()
 
@@ -50,8 +51,8 @@ class GCSSTask(DesktopTask):
         self._window_title_stack.clear()
 
     def _post_actions(self):
-        if len(self._get_matching_processes('GCSS')) > 0:
-            self._kill_processes('GCSS')
+        if len(get_matching_processes('GCSS')) > 0:
+            kill_processes('GCSS')
 
     def _open_the_gcss(self):
         logger: Logger = get_current_logger()

@@ -1,8 +1,10 @@
+import os
 from logging import Logger
 
 import xlwings as xw
-from xlwings import App, Book
+from xlwings import App
 
+from src.common.ProcessUtil import kill_processes
 from src.common.ThreadLocalLogger import get_current_logger
 from src.excel_reader_provider.ExcelReaderProvider import ExcelReaderProvider
 
@@ -39,16 +41,26 @@ class XlwingProvider(ExcelReaderProvider):
 
     def save(self, workbook):
         logger: Logger = get_current_logger()
-        try:
-            workbook.save()
-        except Exception as e:
-            # save to a temp name
-            # remove the original name
-            # rename the new file
-            # workbook.save(os.path.join(workbook))
-            logger.error(f'Can not save the workbook, exception details: {e}')
 
-    def close(self, workbook: Book):
+        try:
+
+            workbook.save()
+            logger.info(f'Save the workbook successfully')
+            return workbook
+
+        except BaseException as e:
+            logger.error(f'Can not save the workbook, exception details: {e}')
+            kill_processes('excel')
+
+            current_path = workbook.fullname
+            temp_path = current_path + 'temp'
+
+            workbook.save(temp_path)
+            os.remove(current_path)
+            os.rename(temp_path, current_path)
+            return self.get_workbook(path=current_path)
+
+    def close(self, workbook):
         path_to_workbook: str = workbook.fullname
         workbook.close()
         if self.name_to_workbook.get(path_to_workbook) is not None:

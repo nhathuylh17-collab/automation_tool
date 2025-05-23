@@ -1,3 +1,4 @@
+import time
 from logging import Logger
 from typing import Callable
 
@@ -7,6 +8,7 @@ from pywinauto import Application, WindowSpecification
 from pywinauto.controls.common_controls import ListViewWrapper, _listview_item
 
 from src.common.FileUtil import get_excel_data_in_column_start_at_row
+from src.common.ProcessUtil import get_matching_processes
 from src.common.ThreadLocalLogger import get_current_logger
 from src.common.exception.SkipTPDOC import SkipTPDOC
 from src.excel_reader_provider.ExcelReaderProvider import ExcelReaderProvider
@@ -66,8 +68,8 @@ class AV_RSM(GCSSTask):
                 if self.terminated is True:
                     return
 
-            print('START_FLOW current gcss process count {}'.format(len(self._get_matching_processes('GCSS'))))
-            if len(self._get_matching_processes('GCSS')) == 0:
+            print('START_FLOW current gcss process count {}'.format(len(get_matching_processes('GCSS'))))
+            if len(get_matching_processes('GCSS')) == 0:
                 self._pre_actions()
 
             self._wait_for_window('Pending Tray')
@@ -93,11 +95,12 @@ class AV_RSM(GCSSTask):
                                                     'Done')
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
-                self.excel_provider.save(workbook)
+                workbook = self.excel_provider.save(workbook)
                 logger.info("Done with shipment " + shipment)
 
                 print(
-                    'END_FLOW current gcss process count {}'.format(len(self._get_matching_processes('GCSS'))))
+                    'END_FLOW current gcss process count {}'.format(len(get_matching_processes('GCSS'))))
+                time.sleep(3)
 
             except SkipTPDOC:
                 logger.error(f'Face an TP doc exception {shipment}')
@@ -114,7 +117,7 @@ class AV_RSM(GCSSTask):
 
                 logger.info(f'Cannot handle shipment {shipment}. \n {e} \nMoving to next shipment')
 
-                if len(self._get_matching_processes('GCSS')) == 0:
+                if len(get_matching_processes('GCSS')) == 0:
                     self._pre_actions()
                 else:
                     self._close_windows_util_reach_first_gscc()
