@@ -1,0 +1,3 @@
+Create a mechanism for kill and open GCSS each time user run a GCSS task, big update in FileUlti, DesktopApp, GCSSTask.py.
+Recall window tiltle stack and apend in correct len
+Tried to handle when saving excel encounter some error
