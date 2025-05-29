@@ -16,7 +16,7 @@ from src.excel_reader_provider.XlwingProvider import XlwingProvider
 from src.task.GCSSTask import GCSSTask
 
 
-class AV_RCDQI(GCSSTask):
+class Interim(GCSSTask):
 
     def __init__(self, settings: dict[str, str], callback_before_run_task: Callable[[], None]):
         super().__init__(settings, callback_before_run_task)
@@ -189,7 +189,7 @@ class AV_RCDQI(GCSSTask):
         if target_combobox:
             for child in target_combobox.children():
                 if child.class_name() == "Edit" and child.control_id() == 1001:
-                    child.type_keys("Documentation")
+                    child.type_keys("Import")
                     self.sleep()
         runner = 0
         capture_tasks = False
@@ -198,9 +198,8 @@ class AV_RCDQI(GCSSTask):
         array = [None for _ in range(6)]
         self.sleep()
 
-        list_of_activity_plan: list[_listview_item] = []
-        list_of_activity_plan_close: list[_listview_item] = []
-        self.sleep()
+        list_of_interim_transport: list[_listview_item] = []
+        list_of_interim_transport_closed: list[_listview_item] = []
         listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
 
         for item in listview_activity.items():
@@ -212,47 +211,40 @@ class AV_RCDQI(GCSSTask):
 
             runner = 0
 
-            if array[0].text().startswith('Resolve Customs Data Quality Issues'):
+            if array[0].text().startswith('Arrange Interim Transport'):
                 capture_tasks = True
-
             if capture_tasks is True:
 
-                if array[0].text().startswith('Resolve Customs Data Quality Issues') and array[4].text() == 'Open':
-                    logger.info('Data Quality is Open now')
-                    list_of_activity_plan.append(array[0])
+                if array[0].text().startswith('Arrange Interim Transport') and array[4].text() == 'Open':
+                    logger.info('Arrange Interim Transport')
+                    list_of_interim_transport.append(array[0])
 
-                if array[0].text().startswith('Resolve Customs Data Quality Issues') and array[4].text() == 'Closed':
-                    list_of_activity_plan_close.append(array[0])
-                    logger.info('Data Quality is closed before by {}'.format(array[2].text()))
+                if array[0].text().startswith('Arrange Interim Transport') and array[4].text() == 'Closed':
+                    list_of_interim_transport_closed.append(array[0])
+                    logger.info('Arrange Interim Transport is closed before by {}'.format(array[2].text()))
 
-        # cover IF we have TPDOC - more than 1 row has Resolve Customs Data Quality Issues
-        if len(list_of_activity_plan) > 1 or len(list_of_activity_plan_close) > 1:
-            logger.debug('{} has TP Doc'.format(shipment))
+        # cover case TPDOC - more than 1 row Seal Mismatch is closed before
+        if len(list_of_interim_transport) > 1 or len(list_of_interim_transport_closed) > 1:
             self._close_windows_util_reach_first_gscc()
-            raise SkipTPDOC
+            raise SkipTPDOC()
 
-        # TPDOC - 1 row open and 1 row closed
-        if len(list_of_activity_plan) == 1 and len(list_of_activity_plan_close) == 1:
+        # cover case TPDOC - 1 is opened and 1 is closed - total 2 row
+        if len(list_of_interim_transport) == 1 and len(list_of_interim_transport_closed) == 1:
             self._close_windows_util_reach_first_gscc()
-            raise SkipTPDOC
+            raise SkipTPDOC()
 
         # normal shipment
-        for activity_plan in list_of_activity_plan:
-            activity_plan.select()
-            pyautogui.hotkey('alt', 'h')
-            self.sleep()
-            pyautogui.hotkey('left')
-            self.sleep()
-            # self.select_menu_item("Manifest")
-            pyautogui.hotkey('down')
-            self.sleep()
-            pyautogui.hotkey('right')
-            self.sleep()
-            pyautogui.hotkey('down')
-            pyautogui.hotkey('enter')
-            activity_plan.deselect()
+        for plan_seal in list_of_interim_transport:
+            plan_seal.select()
+            pyautogui.hotkey('alt', 'L')
             self.sleep()
 
+            while True:
+                list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
+                pyautogui.hotkey('ctrl', 't')
+                if list_views.__len__() == 1:
+                    break
+                self.sleep()
         self._close_windows_util_reach_first_gscc()
 
     def select_menu_item(self, menu_item_name):

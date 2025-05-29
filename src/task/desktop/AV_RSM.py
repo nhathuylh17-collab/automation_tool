@@ -24,7 +24,7 @@ class AV_RSM(GCSSTask):
         self.excel_provider: ExcelReaderProvider = None
         self.current_worksheet = None
         # self.current_status_excel_col_index: int = 0
-        self.current_status_excel_row_index: int = 5
+        self.current_status_excel_row_index: int = 2
 
     def mandatory_settings(self) -> list[str]:
         desktop_mandatory_keys: list[str] = super().mandatory_settings()
