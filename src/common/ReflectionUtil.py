@@ -9,7 +9,8 @@ from src.task.AutomatedTask import AutomatedTask
 cache: dict[str, ModuleType] = {}
 
 
-def create_task_instance(setting_states: dict[str, str], task_name: str,
+def create_task_instance(setting_states: dict[str, str],
+                         task_name: str,
                          callback_before_run_task: Callable[[], None]) -> AutomatedTask:
     if cache.get(task_name):
         clazz = getattr(cache.get(task_name), task_name)

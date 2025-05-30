@@ -834,13 +834,16 @@ class GUIApp(QMainWindow):
             self.logger.error("No task selected. Please select a task before performing.")
             return
 
-        if self.automated_task and self.automated_task.is_alive():
+        if self.automated_task is not None and self.automated_task.is_running_code():
             QMessageBox.information(self, "Task Running", "Please terminate the current task before running a new one")
             return
 
-        if not self.automated_task:
-            self.automated_task = create_task_instance(self.current_task_settings, self.current_task_name,
-                                                       lambda: self.setup_custom_logger())
+        if self.automated_task is None or self.automated_task.is_completed():
+            self.automated_task = create_task_instance(
+                self.current_task_settings,
+                self.current_task_name,
+                lambda: self.setup_custom_logger()
+            )
 
         self.progress_bar.setValue(0)
         self.progress_bar.setFormat(f"{type(self.automated_task).__name__} 0%")
