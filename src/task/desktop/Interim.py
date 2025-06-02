@@ -215,7 +215,8 @@ class Interim(GCSSTask):
                 capture_tasks = True
             if capture_tasks is True:
 
-                if array[0].text().startswith('Arrange Interim Transport') and array[4].text() == 'Open':
+                if array[0].text().startswith('Arrange Interim Transport') and (
+                        array[4].text() == 'Open' or array[4].text() == ''):
                     logger.info('Arrange Interim Transport')
                     list_of_interim_transport.append(array[0])
 

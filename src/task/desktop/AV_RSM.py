@@ -215,7 +215,8 @@ class AV_RSM(GCSSTask):
                 capture_tasks = True
             if capture_tasks is True:
 
-                if array[0].text().startswith('Resolve Seal Mismatch') and array[4].text() == 'Open':
+                if array[0].text().startswith('Resolve Seal Mismatch') and (
+                        array[4].text() == 'Open' or array[4].text() == ''):
                     logger.info('Seal Mismatch is Open now')
                     list_of_activity_plan_seal.append(array[0])
 

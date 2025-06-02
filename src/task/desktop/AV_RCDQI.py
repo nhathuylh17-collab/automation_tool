@@ -217,7 +217,8 @@ class AV_RCDQI(GCSSTask):
 
             if capture_tasks is True:
 
-                if array[0].text().startswith('Resolve Customs Data Quality Issues') and array[4].text() == 'Open':
+                if array[0].text().startswith('Resolve Customs Data Quality Issues') and (
+                        array[4].text() == 'Open' or array[4].text() == ''):
                     logger.info('Data Quality is Open now')
                     list_of_activity_plan.append(array[0])
 
@@ -233,6 +234,7 @@ class AV_RCDQI(GCSSTask):
 
         # TPDOC - 1 row open and 1 row closed
         if len(list_of_activity_plan) == 1 and len(list_of_activity_plan_close) == 1:
+            logger.debug('{} has TP Doc'.format(shipment))
             self._close_windows_util_reach_first_gscc()
             raise SkipTPDOC
 
