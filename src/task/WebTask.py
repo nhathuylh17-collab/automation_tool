@@ -58,12 +58,22 @@ class WebTask(AutomatedTask, ABC):
             options.add_argument("--window-size=%s" % "1920,1080")
             options.add_argument("--use-fake-ui-for-media-stream")
 
+
         else:
             options.add_argument("--start-maximized")
 
         options.add_argument('--disable-extensions')
         options.add_argument('--disable-infobars')
         options.add_argument('--disable-notifications')
+        options.add_argument('--disable-features=SafeBrowsing')
+        options.add_argument('--disable-popup-blocking')
+        options.add_argument(
+            "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_experimental_option('excludeSwitches', ['enable-automation'])
+
+        options.add_argument('--ignore-certificate-errors')
+        options.add_argument('--ignore-ssl-errors')
 
         download_path: str = self._download_folder
         prefs: dict = {
