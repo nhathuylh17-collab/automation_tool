@@ -23,6 +23,7 @@ jobs:
 
       - name: Update the file storing latest release version information
         run: |
+          git fetch origin
           git checkout main
           echo "${{ steps.tag_name.outputs.tag_version }}" > release_notes/current_release_version.txt
           git config user.name "huy-lehoangnhat-maersk"
