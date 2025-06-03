@@ -15,6 +15,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Get tag name
+        id: tag_name
+        run: |
+          $tagName = $env:GITHUB_REF -replace 'refs/tags/', ''
+          Write-Output "::set-output name=tag_version::$tagName"
+
+      - name: Update the file storing latest release version information
+        run: |
+          echo "${{ steps.tag_name.outputs.tag_version }}" > release_notes/current_release_version.txt
+          git config user.name "huy-lehoangnhat-maersk"
+          git config user.email "huy.le@lns.maersk.com"
+          git add release_notes/current_release_version.txt
+          git commit -m "Update current_release_version.txt to ${{ steps.tag_name.outputs.tag_version }}"
+          git push
+        shell: bash
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -57,12 +73,6 @@ jobs:
       - name: Build Installer
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" /DMyVar="Value" "automation_tool.iss"
-
-      - name: Get tag name
-        id: tag_name
-        run: |
-          $tagName = $env:GITHUB_REF -replace 'refs/tags/', ''
-          Write-Output "::set-output name=tag_version::$tagName"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
