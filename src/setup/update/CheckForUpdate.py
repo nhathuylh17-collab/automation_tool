@@ -42,7 +42,7 @@ def update_on_demand():
                                stderr=subprocess.PIPE,
                                text=True)
 
-    while len(get_matching_processes('Setup - automation_tool')) > 0:
+    while len(get_matching_processes('Setup')) > 0:
         time.sleep(1)
 
     kill_processes('automation_tool')
