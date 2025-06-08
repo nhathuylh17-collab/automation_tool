@@ -26,10 +26,11 @@ jobs:
           git fetch origin
           git checkout main
           echo "${{ steps.tag_name.outputs.tag_version }}" > release_notes/current_release_version.txt
+          sed -i "1s/#define MyAppVersion \".*\"/#define MyAppVersion \"${{ steps.tag_name.outputs.tag_version }}\"/" automation_tool.iss
           git config user.name "huy-lehoangnhat-maersk"
           git config user.email "huy.le@lns.maersk.com"
-          git add release_notes/current_release_version.txt
-          git commit -m "Update current_release_version.txt to ${{ steps.tag_name.outputs.tag_version }}"
+          git add release_notes/current_release_version.txt automation_tool.iss
+          git commit -m "Update current_release_version.txt and automation_tool.iss to ${{ steps.tag_name.outputs.tag_version }}"
           git push origin main
         shell: bash
 

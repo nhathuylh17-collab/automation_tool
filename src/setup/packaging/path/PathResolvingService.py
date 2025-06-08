@@ -13,6 +13,7 @@ class PathResolvingService:
         self.__input_dir: str = None
         self.__output_dir: str = None
         self.__log_dir: str = None
+        self.__release_note: str = None
 
     def resolve(self, mandatory_path: str, *passing_paths) -> str:
 
@@ -52,3 +53,8 @@ class PathResolvingService:
         if self.__log_dir is None:
             self.__log_dir = self.resolve('log')
         return self.__log_dir
+
+    def get_release_notes(self):
+        if self.__release_note is None:
+            self.__release_note = self.resolve('release_notes')
+        return self.__release_note

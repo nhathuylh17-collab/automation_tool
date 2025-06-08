@@ -30,6 +30,10 @@ def persist_settings_to_file(task_name: str, setting_values: dict[str, str]):
 
 
 def load_key_value_from_file_properties(setting_file: str) -> dict[str, str]:
+    """
+
+    @rtype: object
+    """
     logger: Logger = get_current_logger()
     if not os.path.exists(setting_file):
         raise Exception("The settings file {} is not existed. Please providing it !".format(setting_file))
@@ -53,6 +57,26 @@ def load_key_value_from_file_properties(setting_file: str) -> dict[str, str]:
                 settings[key] = value
 
         return settings
+
+
+def get_content_of_a_file_as_a_line(file_path: str) -> str:
+    if not os.path.exists(file_path):
+        raise Exception("The settings file {} is not existed. Please providing it !".format(file_path))
+
+    with ResourceLock(file_path=file_path):
+
+        content: str = ''
+        with open(file_path, 'r') as setting_file_stream:
+
+            for line in setting_file_stream:
+
+                line = line.replace("\n", "").strip()
+                if len(line) == 0 or line.startswith("#"):
+                    continue
+
+                content = content + line
+
+        return content
 
 
 def get_excel_data_in_column_start_at_row(file_path, sheet_name, start_cell) -> list[str]:
