@@ -21,6 +21,20 @@ jobs:
           $tagName = $env:GITHUB_REF -replace 'refs/tags/', ''
           Write-Output "::set-output name=tag_version::$tagName"
 
+      - name: Determine Release Notes File
+        id: determine_release_notes
+        run: |
+          if [ -z "${{ steps.tag_name.outputs.tag_version }}" ]; then
+            notes_file="release_notes/default_rn.txt"
+          else
+            notes_file="release_notes/${{ steps.tag_name.outputs.tag_version }}.txt"
+            if [ ! -f "$notes_file" ]; then
+              cp release_notes/default_rn.txt "$notes_file"
+            fi
+          fi
+          echo "::set-output name=notes_file::$notes_file"
+        shell: bash
+
       - name: Update the file storing latest release version information
         run: |
           git fetch origin
@@ -29,8 +43,8 @@ jobs:
           sed -i "1s/#define MyAppVersion \".*\"/#define MyAppVersion \"${{ steps.tag_name.outputs.tag_version }}\"/" automation_tool.iss
           git config user.name "huy-lehoangnhat-maersk"
           git config user.email "huy.le@lns.maersk.com"
-          git add release_notes/current_release_version.txt automation_tool.iss
-          git commit -m "Update current_release_version.txt and automation_tool.iss to ${{ steps.tag_name.outputs.tag_version }}"
+          git add .
+          git commit -m "Update files to set the new release to ${{ steps.tag_name.outputs.tag_version }}"
           git push origin main
         shell: bash
 
@@ -82,20 +96,6 @@ jobs:
         with:
           name: automation_tool_${{ steps.tag_name.outputs.tag_version }}
           path: dist/automation_tool.exe
-
-      - name: Determine Release Notes File
-        id: determine_release_notes
-        run: |
-          if [ -z "${{ steps.tag_name.outputs.tag_version }}" ]; then
-            notes_file="release_notes/default_rn.txt"
-          else
-            notes_file="release_notes/${{ steps.tag_name.outputs.tag_version }}.txt"
-            if [ ! -f "$notes_file" ]; then
-              notes_file="release_notes/default_rn.txt"
-            fi
-          fi
-          echo "::set-output name=notes_file::$notes_file"
-        shell: bash
 
       - name: Read Release Notes
         id: read_release_notes
