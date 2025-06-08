@@ -18,7 +18,8 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                              QGridLayout)
 from requests.auth import HTTPBasicAuth
 
-from src.common.FileUtil import load_key_value_from_file_properties, persist_settings_to_file
+from src.common.FileUtil import load_key_value_from_file_properties, persist_settings_to_file, \
+    get_all_concrete_task_names
 from src.common.ReflectionUtil import create_task_instance
 from src.common.ThreadLocalLogger import get_current_logger
 from src.gui.TextBoxLoggingHandler import setup_textbox_logger
@@ -704,23 +705,7 @@ class GUIApp(QMainWindow):
                 btn.setParent(None)
         self.task_buttons.clear()
 
-        if getattr(sys, 'frozen', False):
-            base_dir = os.path.dirname(sys.executable)  # e.g., C:\automation_tool
-        else:
-            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        # Set task_dir to the root task directory
-        task_dir = os.path.join(base_dir, 'src', 'task', dir_name)
-
-        self.logger.debug(f"Task directory path: {task_dir}")
-        if not os.path.exists(task_dir):
-            self.logger.error(f"Directory {task_dir} does not exist.")
-            return
-
-        task_files = [f[:-3] for f in os.listdir(task_dir) if f.endswith('.py') and f != '__init__.py']
-        self.logger.debug(f"Found task files: {task_files}")
-        if not task_files:
-            self.logger.info(f"No tasks found in {dir_name} directory.")
-            return
+        task_files = get_all_concrete_task_names(since_level=0, sub_dir=dir_name)
 
         self.task_buttons[menu] = []
         menu_index = self.sidebar_menus.index(menu)

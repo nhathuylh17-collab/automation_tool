@@ -326,7 +326,7 @@ def get_files_names_in_dir(dir_path: str,
     return file_names
 
 
-def get_all_concrete_task_names() -> list[str]:
+def get_all_concrete_task_names(since_level: int, sub_dir: str = '') -> list[str]:
     """
     Gets sorted list of Python file names (without .py) from task directory, excluding certain names.
 
@@ -335,13 +335,9 @@ def get_all_concrete_task_names() -> list[str]:
     """
     discarded_task_names: set[str] = {"__init__"}
     concrete_task_names: set[str] = get_files_names_in_dir(
-        dir_path=PathResolvingService.get_instance().get_task_dir(),
+        dir_path=os.path.join(PathResolvingService.get_instance().get_task_dir(), sub_dir),
         file_extension='.py',
         excluded_file_names=discarded_task_names,
-        since_level=1
+        since_level=since_level
     )
     return sorted(list(concrete_task_names))
-
-
-if __name__ == '__main__':
-    print(get_all_concrete_task_names())
