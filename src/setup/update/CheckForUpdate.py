@@ -11,10 +11,12 @@ store your access token and the GitHub endpoints in a separated json file in the
 import os
 import re
 import subprocess
+import time
 
 import requests
 
 from src.common.FileUtil import load_key_value_from_file_properties, get_content_of_a_file_as_a_line
+from src.common.ProcessUtil import get_matching_processes, kill_processes
 from src.setup.packaging.path.PathResolvingService import PathResolvingService
 from src.setup.update.model.GetReleaseResponse import Release, Asset
 
@@ -39,6 +41,15 @@ def update_on_demand():
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE,
                                text=True)
+
+    while len(get_matching_processes('Setup - automation_tool')) > 0:
+        time.sleep(1)
+
+    kill_processes('automation_tool')
+    # process = subprocess.Popen([installer_full_path, '/NOSCREENS'],
+    #                            stdout=subprocess.PIPE,
+    #                            stderr=subprocess.PIPE,
+    #                            text=True)
 
 
 def download_asset(remote_release: Release) -> str:
@@ -142,6 +153,3 @@ def get_latest_remote_release() -> Release:
     )
 
     return release
-
-
-update_on_demand()

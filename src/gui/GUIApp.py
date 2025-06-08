@@ -29,6 +29,7 @@ from src.observer.EventBroker import EventBroker
 from src.observer.EventHandler import EventHandler
 from src.observer.PercentChangedEvent import PercentChangedEvent
 from src.setup.packaging.path.PathResolvingService import PathResolvingService
+from src.setup.update.CheckForUpdate import update_on_demand
 from src.task.AutomatedTask import AutomatedTask
 
 
@@ -2003,48 +2004,7 @@ class GUIApp(QMainWindow):
         # self.settings_layout.addStretch()
 
     def check_for_updates(self, status_label):
-        """Kiểm tra và tải xuống bản cập nhật từ GitHub."""
-        try:
-            # Thay bằng URL API GitHub của công ty bạn
-            github_repo_url = "https://github.com/Maersk-Global/automation_tool/releases/download/v0.0.50/automation_tool_installer_v0.0.50.exe"
-            # Nếu kho GitHub nội bộ yêu cầu xác thực, thêm thông tin đăng nhập
-            github_username = "huy-lehoangnhat-maersk"
-            github_token = "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"  # Tạo token từ GitHub settings
-
-            self.logger.info("Checking for updates from GitHub...")
-            status_label.setText("Checking for updates...")
-
-            # Gửi yêu cầu đến GitHub API
-            response = requests.get(github_repo_url, auth=HTTPBasicAuth(github_username, github_token))
-            response.raise_for_status()
-
-            release_info = response.json()
-            latest_tag = release_info["tag_name"]  # Ví dụ: "v1.0.1"
-            current_version = "v1.0.0"  # Giả định phiên bản hiện tại, bạn cần lấy từ ứng dụng
-
-            if latest_tag > current_version:
-                self.logger.info(f"New version found: {latest_tag}")
-                status_label.setText(f"New version found: {latest_tag}. Downloading...")
-
-                # Tải xuống tệp thực thi từ release assets
-                for asset in release_info["assets"]:
-                    if asset["name"].endswith(".exe"):  # Giả sử bạn tải file .exe
-                        download_url = asset["browser_download_url"]
-                        self.download_update(download_url, github_username, github_token, status_label)
-                        break
-                else:
-                    status_label.setText("No executable found in the latest release.")
-                    self.logger.error("No executable found in the latest release.")
-            else:
-                status_label.setText("You are using the latest version.")
-                self.logger.info("No updates available.")
-
-        except requests.RequestException as e:
-            status_label.setText(
-                "Failed to check for updates."
-
-                " Contact Developer: HNL014 - huy.le@lns.maersk.com")
-            self.logger.error(f"Error checking updates: {str(e)}")
+        update_on_demand()
 
     def download_update(self, download_url, username, token, status_label):
         """Tải xuống tệp cập nhật và lưu vào thư mục tạm thời."""
