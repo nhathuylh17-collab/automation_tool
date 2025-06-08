@@ -15,7 +15,7 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
-UsePreviousAppDir=no
+UsePreviousAppDir=yes
 DefaultDirName={sd}\{#MyAppName}
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -53,3 +53,42 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+var
+  SkipScreens: Boolean;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  if SkipScreens then
+  begin
+    case PageID of
+      wpSelectTasks: Result := True;
+      wpReady: Result := True;
+      wpFinished: Result := True;
+    else
+      Result := False;
+    end;
+  end
+  else
+    Result := False;
+end;
+
+function InitializeSetup(): Boolean;
+var
+  I: Integer;
+  Param: String;
+begin
+  SkipScreens := False;
+
+  for I := 1 to ParamCount do
+  begin
+    Param := ParamStr(I);
+    if CompareText(Param, '/NOSCREENS') = 0 then
+    begin
+      SkipScreens := True;
+      Break;
+    end;
+  end;
+  Result := True;
+end;

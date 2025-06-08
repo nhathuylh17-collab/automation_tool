@@ -35,7 +35,7 @@ def update_on_demand():
         return
 
     installer_full_path: str = download_asset(remote_release)
-    process = subprocess.Popen([installer_full_path],
+    process = subprocess.Popen([installer_full_path, '/NOSCREENS'],
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE,
                                text=True)
