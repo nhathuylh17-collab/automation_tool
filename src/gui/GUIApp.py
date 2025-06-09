@@ -5,6 +5,7 @@ import shutil
 import socket
 import sys
 import tempfile
+from logging import Logger
 from typing import Dict, Optional
 
 import pythoncom
@@ -1803,8 +1804,68 @@ class GUIApp(QMainWindow):
                     background-color: #1686BD;
                 }
             """)
+        logger: Logger = get_current_logger()
+
         check_update_button.clicked.connect(lambda: self.check_for_updates(update_status_label))
+
         update_layout.addWidget(check_update_button)
+
+        update_layout.addStretch()
+        tab_widget.addTab(update_tab, "Update")
+
+        # Adding Logger box in tab Update
+        # Logger output for update tab
+        update_log_textbox = QTextEdit()
+        update_log_textbox.setFont(QFont("Maersk Headline", 10))
+        update_log_textbox.setStyleSheet("""
+            QTextEdit {
+                background-color: #6A6A6A;
+                border: 0px solid #D4D4D4;
+                border-radius: 5px;
+                padding: 5px;
+                color: #FFFFFF;
+                min-height: 150px;
+                max-height: 300px;
+                min-width: 400px;
+            }
+            QTextEdit QScrollBar:vertical {
+                border: none;
+                background: #F5F5F5;
+                width: 6px;
+                margin: 0px 0px 0px 0px;
+            }
+            QTextEdit QScrollBar::handle:vertical {
+                background: #C0C0C0;
+                min-height: 20px;
+                border-radius: 3px;
+            }
+            QTextEdit QScrollBar::handle:vertical:hover {
+                background: #A9A9A9;
+            }
+            QTextEdit QScrollBar::add-line:vertical {
+                height: 0px;
+                subcontrol-position: bottom;
+                subcontrol-origin: margin;
+            }
+            QTextEdit QScrollBar::sub-line:vertical {
+                height: 0px;
+                subcontrol-position: top;
+                subcontrol-origin: margin;
+            }
+            QTextEdit QScrollBar::up-arrow:vertical, QTextEdit QScrollBar::down-arrow:vertical {
+                background: none;
+            }
+            QTextEdit QScrollBar::add-page:vertical, QTextEdit QScrollBar::sub-page:vertical {
+                background: none;
+            }
+        """)
+        update_log_textbox.setReadOnly(True)
+        update_log_textbox.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        update_layout.addWidget(update_log_textbox)
+
+        from src.gui.TextBoxLoggingHandler import TextBoxLoggingHandler
+        textbox_handler = TextBoxLoggingHandler(update_log_textbox)
+        logger.addHandler(textbox_handler)
 
         update_layout.addStretch()
         tab_widget.addTab(update_tab, "Update")
@@ -2004,6 +2065,8 @@ class GUIApp(QMainWindow):
         # self.settings_layout.addStretch()
 
     def check_for_updates(self, status_label):
+        logger: Logger = get_current_logger()
+        logger.info('Checking your automation_tool version...')
         update_on_demand()
 
     def download_update(self, download_url, username, token, status_label):

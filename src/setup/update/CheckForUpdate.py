@@ -1,22 +1,13 @@
-"""get latest release version via  GET /repos/{owner}/{repo}/releases/latest
-check in local, if local version < remote version, then call GET /repos/{owner}/{repo}/releases/{release_id}/assets
-to get all the assets of the latest release
-Get the id of the one you determine that is the new installer, download it via
-GET /repos/{owner}/{repo}/releases/assets/{asset_id}
-make sure you tweak your installer to check existing directory, if it is already exist, then must keep the properties
-files and the logs also
-
-Need to store a file in the /input to help retrieving the local version
-store your access token and the GitHub endpoints in a separated json file in the source"""
 import os
 import re
 import subprocess
-import time
+from logging import Logger
 
 import requests
 
 from src.common.FileUtil import load_key_value_from_file_properties, get_content_of_a_file_as_a_line
-from src.common.ProcessUtil import get_matching_processes, kill_processes
+from src.common.ProcessUtil import kill_processes
+from src.common.ThreadLocalLogger import get_current_logger
 from src.setup.packaging.path.PathResolvingService import PathResolvingService
 from src.setup.update.model.GetReleaseResponse import Release, Asset
 
@@ -28,13 +19,22 @@ api_getting_release_client_settings: dict[str, str] = load_key_value_from_file_p
 def update_on_demand():
     local_release: Release = get_local_running_release()
     remote_release: Release = get_latest_remote_release()
+    logger: Logger = get_current_logger()
 
     local_version = validate_and_extract_version(local_release.tag_name)
+    logger.info('Your version is: {}'.format(local_version))
+
     remote_version = validate_and_extract_version(remote_release.tag_name)
+    logger.info('Remote latest version is: {}'.format(remote_version))
 
     if is_needed_update(local_version, remote_version) is False:
+        logger.info('Your version {} already latest version'.format(local_version))
         # log here, or notify UI already latest version
         return
+
+    logger.info('Downloading version {}'.format(remote_version))
+    logger.info(
+        'Downloaded latest version, please click "Install" and wait for completing set up'.format(remote_version))
 
     installer_full_path: str = download_asset(remote_release)
     process = subprocess.Popen([installer_full_path, '/NOSCREENS'],
@@ -42,14 +42,11 @@ def update_on_demand():
                                stderr=subprocess.PIPE,
                                text=True)
 
-    while len(get_matching_processes('Setup')) > 0:
-        time.sleep(1)
+    # seems wrong, need to rewrite the below
+    # while len(get_matching_processes('Setup')) > 0:
+    #     time.sleep(1)
 
     kill_processes('automation_tool')
-    # process = subprocess.Popen([installer_full_path, '/NOSCREENS'],
-    #                            stdout=subprocess.PIPE,
-    #                            stderr=subprocess.PIPE,
-    #                            text=True)
 
 
 def download_asset(remote_release: Release) -> str:
