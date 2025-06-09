@@ -88,11 +88,11 @@ class AV_RCDQI(GCSSTask):
                 self.sleep()
                 self._wait_for_window(shipment)
 
-                self.process_on_each_shipment(shipment)
+                status = self.process_on_each_shipment(shipment)
                 # try to save excel if shipment can be handled
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
-                                                    'Done')
+                                                    status)
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
                 workbook = self.excel_provider.save(workbook)
@@ -156,7 +156,7 @@ class AV_RCDQI(GCSSTask):
                 break
             self.sleep()
 
-        self.into_activity_shipment(shipment)
+        return self.into_activity_shipment(shipment)
 
     def into_activity_shipment(self, shipment):
         logger: Logger = get_current_logger()
@@ -203,6 +203,7 @@ class AV_RCDQI(GCSSTask):
         self.sleep()
         listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
 
+        status = "Done"
         for item in listview_activity.items():
             array[runner] = item
 
@@ -225,6 +226,8 @@ class AV_RCDQI(GCSSTask):
                 if array[0].text().startswith('Resolve Customs Data Quality Issues') and array[4].text() == 'Closed':
                     list_of_activity_plan_close.append(array[0])
                     logger.info('Data Quality is closed before by {}'.format(array[2].text()))
+                    status = f"Closed by {array[2].text()}"
+                    # return status
 
         # cover IF we have TPDOC - more than 1 row has Resolve Customs Data Quality Issues
         if len(list_of_activity_plan) > 1 or len(list_of_activity_plan_close) > 1:
@@ -238,24 +241,65 @@ class AV_RCDQI(GCSSTask):
             self._close_windows_util_reach_first_gscc()
             raise SkipTPDOC
 
+        # Return "Closed by [user]" if already closed
+        if list_of_activity_plan_close:
+            self._close_windows_util_reach_first_gscc()
+            return status
+
         # normal shipment
         for activity_plan in list_of_activity_plan:
-            activity_plan.select()
-            pyautogui.hotkey('alt', 'h')
-            self.sleep()
-            pyautogui.hotkey('left')
-            self.sleep()
-            # self.select_menu_item("Manifest")
-            pyautogui.hotkey('down')
-            self.sleep()
-            pyautogui.hotkey('right')
-            self.sleep()
-            pyautogui.hotkey('down')
-            pyautogui.hotkey('enter')
-            activity_plan.deselect()
-            self.sleep()
+            max_attempts = 3
+
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    activity_plan.select()
+                    pyautogui.hotkey('alt', 'h')
+                    self.sleep()
+                    pyautogui.hotkey('left')
+                    self.sleep()
+                    # self.select_menu_item("Manifest")
+                    pyautogui.hotkey('down')
+                    self.sleep()
+                    pyautogui.hotkey('right')
+                    self.sleep()
+                    pyautogui.hotkey('down')
+                    pyautogui.hotkey('enter')
+                    activity_plan.deselect()
+                    self.sleep()
+
+                    # Check status after attempt
+                    listview_activity = self._window.children(class_name="SysListView32")[0]
+                    runner = 0
+                    array = [None for _ in range(6)]
+                    for item in listview_activity.items():
+                        array[runner] = item
+                        if runner != 5:
+                            runner = runner + 1
+                            continue
+                        runner = 0
+                        if array[0].text() == activity_plan.text() and array[0].text().startswith(
+                                'Resolve Customs Data Quality Issues'):
+                            if array[4].text() not in ['Open', '']:
+                                break  # Success, move to next activity_plan
+                    else:
+                        # If loop completes without breaking, check final attempt
+                        if attempt == max_attempts:
+                            status = "Cannot close shipment"
+                            logger.info(
+                                f"Failed to process activity plan {activity_plan.text()} after {max_attempts} attempts")
+                            return status  # Exit early if one activity fails
+
+                except Exception as e:
+                    logger.error(f"Error during attempt {attempt} for activity plan {activity_plan.text()}: {e}")
+                    self.sleep()
+                    if attempt == max_attempts:
+                        status = "Cannot close shipment"
+                        logger.info(
+                            f"Failed to process activity plan {activity_plan.text()} after {max_attempts} attempts")
+                        return status  # Exit early if one activity fails
 
         self._close_windows_util_reach_first_gscc()
+        return status
 
     def select_menu_item(self, menu_item_name):
         """
