@@ -92,6 +92,9 @@ class Interim(GCSSTask):
                 # try to save excel if shipment can be handled
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
+                                                    'Done')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    3,
                                                     stauts)
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
@@ -107,6 +110,9 @@ class Interim(GCSSTask):
                 # try to save excel and skip shipment
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
+                                                    'Skip TPDoc')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    3,
                                                     'Have TPDoc')
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
@@ -121,9 +127,11 @@ class Interim(GCSSTask):
                     self._pre_actions()
                 else:
                     self._close_windows_util_reach_first_gscc()
-
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
+                                                    'Error - Skip')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    3,
                                                     'Cannot handle shipment {}, please check manual'.format(
                                                         shipment))
                 self.excel_provider.save(workbook)
@@ -237,7 +245,7 @@ class Interim(GCSSTask):
             raise SkipTPDOC()
 
         # Return "Closed by [user]" if already closed
-        if list_of_interim_transport:
+        if list_of_interim_transport_closed:
             self._close_windows_util_reach_first_gscc()
             return status
 
@@ -287,23 +295,3 @@ class Interim(GCSSTask):
 
         self._close_windows_util_reach_first_gscc()
         return status
-
-    def select_menu_item(self, menu_item_name):
-        """
-        Chọn một mục trong thanh menu chính (menu header).
-        menu_item_name: Tên của mục menu cần chọn (ví dụ: 'Manifest', 'File', 'Edit', v.v.).
-        """
-        logger: Logger = get_current_logger()
-        try:
-            # Truy cập thanh menu của cửa sổ
-            self._window = self._window_spec.wrapper_object()
-            self._window.menu_select(menu_item_name)
-            self.sleep()
-            logger.info('selected')
-
-        except Exception as e:
-            menu = self._window.menu()
-            menu_items = menu.items()
-            for item in menu_items:
-                logger.debug(f"  - {item.text()}")
-                logger.info('Cannot select')

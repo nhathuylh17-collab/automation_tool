@@ -92,6 +92,9 @@ class AV_RSM(GCSSTask):
                 # try to save excel if shipment can be handled
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
+                                                    'Done')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    3,
                                                     status)
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
@@ -107,6 +110,9 @@ class AV_RSM(GCSSTask):
                 # try to save excel and skip shipment
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
+                                                    'Skip TPDoc')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    3,
                                                     'Have TPDoc')
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
@@ -124,6 +130,9 @@ class AV_RSM(GCSSTask):
 
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
+                                                    'Error - Skip')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    3,
                                                     'Cannot handle shipment {}, please check manual'.format(
                                                         shipment))
                 self.excel_provider.save(workbook)
@@ -225,7 +234,7 @@ class AV_RSM(GCSSTask):
                 if array[0].text().startswith('Resolve Seal Mismatch') and array[4].text() == 'Closed':
                     list_of_activity_plan_seal_closed.append(array[0])
                     logger.info('Seal Mismatch is closed before by {}'.format(array[2].text()))
-                    status = f"Closed by {array[2].text()}"
+                    status = f"Closed before by {array[2].text()}"
 
         # cover case TPDOC - more than 1 row Seal Mismatch is closed before
         if len(list_of_activity_plan_seal) > 1 or len(list_of_activity_plan_seal_closed) > 1:
@@ -291,23 +300,3 @@ class AV_RSM(GCSSTask):
 
         self._close_windows_util_reach_first_gscc()
         return status
-
-    def select_menu_item(self, menu_item_name):
-        """
-        Chọn một mục trong thanh menu chính (menu header).
-        menu_item_name: Tên của mục menu cần chọn (ví dụ: 'Manifest', 'File', 'Edit', v.v.).
-        """
-        logger: Logger = get_current_logger()
-        try:
-            # Truy cập thanh menu của cửa sổ
-            self._window = self._window_spec.wrapper_object()
-            self._window.menu_select(menu_item_name)
-            self.sleep()
-            logger.info('selected')
-
-        except Exception as e:
-            menu = self._window.menu()
-            menu_items = menu.items()
-            for item in menu_items:
-                logger.debug(f"  - {item.text()}")
-                logger.info('Cannot select')
