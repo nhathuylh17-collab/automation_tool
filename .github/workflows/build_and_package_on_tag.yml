@@ -32,6 +32,8 @@ jobs:
               cp release_notes/default_rn.txt "$notes_file"
             fi
           fi
+          commit_message=$(git log -1 --pretty=%B)
+          echo -e "\nCommit Message:\n$commit_message" >> "$notes_file"
           echo "::set-output name=notes_file::$notes_file"
         shell: bash
 
