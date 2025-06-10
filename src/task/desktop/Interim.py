@@ -88,11 +88,11 @@ class Interim(GCSSTask):
                 self.sleep()
                 self._wait_for_window(shipment)
 
-                self.process_on_each_shipment(shipment)
+                stauts = self.process_on_each_shipment(shipment)
                 # try to save excel if shipment can be handled
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
-                                                    'Done')
+                                                    stauts)
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
                 workbook = self.excel_provider.save(workbook)
@@ -156,7 +156,7 @@ class Interim(GCSSTask):
                 break
             self.sleep()
 
-        self.into_activity_shipment(shipment)
+        return self.into_activity_shipment(shipment)
 
     def into_activity_shipment(self, shipment):
         logger: Logger = get_current_logger()
@@ -202,6 +202,7 @@ class Interim(GCSSTask):
         list_of_interim_transport_closed: list[_listview_item] = []
         listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
 
+        status = "Done"
         for item in listview_activity.items():
             array[runner] = item
 
@@ -223,6 +224,7 @@ class Interim(GCSSTask):
                 if array[0].text().startswith('Arrange Interim Transport') and array[4].text() == 'Closed':
                     list_of_interim_transport_closed.append(array[0])
                     logger.info('Arrange Interim Transport is closed before by {}'.format(array[2].text()))
+                    status = f"Closed by {array[2].text()}"
 
         # cover case TPDOC - more than 1 row Seal Mismatch is closed before
         if len(list_of_interim_transport) > 1 or len(list_of_interim_transport_closed) > 1:
@@ -234,11 +236,47 @@ class Interim(GCSSTask):
             self._close_windows_util_reach_first_gscc()
             raise SkipTPDOC()
 
+        # Return "Closed by [user]" if already closed
+        if list_of_interim_transport:
+            self._close_windows_util_reach_first_gscc()
+            return status
+
         # normal shipment
         for plan_seal in list_of_interim_transport:
-            plan_seal.select()
-            pyautogui.hotkey('alt', 'L')
-            self.sleep()
+            max_attempts = 3
+
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    plan_seal.select()
+                    pyautogui.hotkey('alt', 'L')
+                    self.sleep()
+
+                    for item in listview_activity.items():
+                        array[runner] = item
+                        if runner != 5:
+                            runner = runner + 1
+                            continue
+                        runner = 0
+                        if array[0].text() == plan_seal.text() and array[0].text().startswith(
+                                'Resolve Customs Data Quality Issues'):
+                            if array[4].text() not in ['Open', '']:
+                                break  # Success, move to next activity_plan
+                    else:
+                        # If loop completes without breaking, check final attempt
+                        if attempt == max_attempts:
+                            status = "Cannot close shipment"
+                            logger.info(
+                                f"Failed to process activity plan {plan_seal.text()} after {max_attempts} attempts")
+                            return status  # Exit early if one activity fails
+
+                except Exception as e:
+                    logger.error(f"Error during attempt {attempt} for activity plan {plan_seal.text()}: {e}")
+                    self.sleep()
+                    if attempt == max_attempts:
+                        status = "Cannot close shipment"
+                        logger.info(
+                            f"Failed to process activity plan {plan_seal.text()} after {max_attempts} attempts")
+                        return status  # Exit early if one activity fails
 
             while True:
                 list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
@@ -246,7 +284,9 @@ class Interim(GCSSTask):
                 if list_views.__len__() == 1:
                     break
                 self.sleep()
+
         self._close_windows_util_reach_first_gscc()
+        return status
 
     def select_menu_item(self, menu_item_name):
         """
