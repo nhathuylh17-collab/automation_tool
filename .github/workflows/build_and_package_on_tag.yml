@@ -27,13 +27,13 @@ jobs:
           if [ -z "${{ steps.tag_name.outputs.tag_version }}" ]; then
             notes_file="release_notes/default_rn.txt"
           else
+            echo -e "\nCommit Message for ${{ steps.tag_name.outputs.tag_version }} ($(date --iso-8601=seconds)):\n${{ github.event.head_commit.message }}\n" >> release_notes/default_rn.txt
             notes_file="release_notes/${{ steps.tag_name.outputs.tag_version }}.txt"
+          
             if [ ! -f "$notes_file" ]; then
               cp release_notes/default_rn.txt "$notes_file"
             fi
           fi
-          commit_message=$(git log -1 --pretty=%B "${{ github.sha }}")
-          echo -e "\nCommit Message:\n$commit_message" >> "$notes_file"
           echo "::set-output name=notes_file::$notes_file"
         shell: bash
 
