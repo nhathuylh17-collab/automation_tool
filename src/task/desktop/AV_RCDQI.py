@@ -88,14 +88,14 @@ class AV_RCDQI(GCSSTask):
                 self.sleep()
                 self._wait_for_window(shipment)
 
-                status = self.process_on_each_shipment(shipment)
+                status_column_B, status_column_C = self.process_on_each_shipment(shipment)
                 # try to save excel if shipment can be handled
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
-                                                    'Done')
+                                                    status_column_B)
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     3,
-                                                    status)
+                                                    status_column_C)
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
                 workbook = self.excel_provider.save(workbook)
@@ -211,7 +211,9 @@ class AV_RCDQI(GCSSTask):
         self.sleep()
         listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
 
-        status = "Done"
+        status_column_B = "Done"
+        status_column_C = "Successfully closed"
+
         for item in listview_activity.items():
             array[runner] = item
 
@@ -234,8 +236,8 @@ class AV_RCDQI(GCSSTask):
                 if array[0].text().startswith('Resolve Customs Data Quality Issues') and array[4].text() == 'Closed':
                     list_of_activity_plan_close.append(array[0])
                     logger.info('Data Quality is closed before by {}'.format(array[2].text()))
-                    status = f"Closed before by {array[2].text()}"
-                    # return status
+                    status_column_B = 'Closed before'
+                    status_column_C = f"By {array[2].text()}"
 
         # cover IF we have TPDOC - more than 1 row has Resolve Customs Data Quality Issues
         if len(list_of_activity_plan) > 1 or len(list_of_activity_plan_close) > 1:
@@ -252,59 +254,49 @@ class AV_RCDQI(GCSSTask):
         # Return "Closed by [user]" if already closed
         if list_of_activity_plan_close:
             self._close_windows_util_reach_first_gscc()
-            return status
+            return status_column_B, status_column_C
 
         # normal shipment
         for activity_plan in list_of_activity_plan:
-            max_attempts = 3
+            activity_plan.select()
+            pyautogui.hotkey('alt', 'h')
+            self.sleep()
+            pyautogui.hotkey('left')
+            self.sleep()
+            # self.select_menu_item("Manifest")
+            pyautogui.hotkey('down')
+            self.sleep()
+            pyautogui.hotkey('right')
+            self.sleep()
+            pyautogui.hotkey('down')
+            pyautogui.hotkey('enter')
+            activity_plan.deselect()
+            self.sleep()
 
-            for attempt in range(1, max_attempts + 1):
-                try:
-                    activity_plan.select()
-                    pyautogui.hotkey('alt', 'h')
-                    self.sleep()
-                    pyautogui.hotkey('left')
-                    self.sleep()
-                    # self.select_menu_item("Manifest")
-                    pyautogui.hotkey('down')
-                    self.sleep()
-                    pyautogui.hotkey('right')
-                    self.sleep()
-                    pyautogui.hotkey('down')
-                    pyautogui.hotkey('enter')
-                    activity_plan.deselect()
-                    self.sleep()
+            # recheck after trying to close shipment
+            runner = 0
+            array = [None for _ in range(6)]
+            capture_tasks = False
 
-                    # Check status after attempt
-                    listview_activity = self._window.children(class_name="SysListView32")[0]
-                    runner = 0
-                    array = [None for _ in range(6)]
-                    for item in listview_activity.items():
-                        array[runner] = item
-                        if runner != 5:
-                            runner = runner + 1
-                            continue
-                        runner = 0
-                        if array[0].text() == activity_plan.text() and array[0].text().startswith(
-                                'Resolve Customs Data Quality Issues'):
-                            if array[4].text() not in ['Open', '']:
-                                break  # Success, move to next activity_plan
-                    else:
-                        # If loop completes without breaking, check final attempt
-                        if attempt == max_attempts:
-                            status = "Cannot close shipment"
-                            logger.info(
-                                f"Failed to process activity plan {activity_plan.text()} after {max_attempts} attempts")
-                            return status  # Exit early if one activity fails
+            listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
 
-                except Exception as e:
-                    logger.error(f"Error during attempt {attempt} for activity plan {activity_plan.text()}: {e}")
-                    self.sleep()
-                    if attempt == max_attempts:
-                        status = "Cannot close shipment"
-                        logger.info(
-                            f"Failed to process activity plan {activity_plan.text()} after {max_attempts} attempts")
-                        return status  # Exit early if one activity fails
+            for item in listview_activity.items():
+                array[runner] = item
+
+                if runner != 5:
+                    runner = runner + 1
+                    continue
+
+                runner = 0
+
+                if array[0].text().startswith('Resolve Customs Data Quality Issues'):
+                    capture_tasks = True
+                if capture_tasks is True:
+                    if array[0].text().startswith('Resolve Customs Data Quality Issues') and (
+                            array[4].text() == 'Open' or array[4].text() == ''):
+                        status_column_B = 'Cannot close shipment'
+                        status_column_C = 'Shipment remains open'
+                    return status_column_B, status_column_C
 
         self._close_windows_util_reach_first_gscc()
-        return status
+        return status_column_B, status_column_C

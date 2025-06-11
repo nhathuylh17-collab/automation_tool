@@ -88,14 +88,14 @@ class Interim(GCSSTask):
                 self.sleep()
                 self._wait_for_window(shipment)
 
-                stauts = self.process_on_each_shipment(shipment)
+                status_column_B, status_column_C = self.process_on_each_shipment(shipment)
                 # try to save excel if shipment can be handled
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
-                                                    'Done')
+                                                    status_column_B)
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     3,
-                                                    stauts)
+                                                    status_column_C)
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
                 workbook = self.excel_provider.save(workbook)
@@ -110,7 +110,7 @@ class Interim(GCSSTask):
                 # try to save excel and skip shipment
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
-                                                    'Skip TPDoc')
+                                                    'Skip')
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     3,
                                                     'Have TPDoc')
@@ -210,7 +210,9 @@ class Interim(GCSSTask):
         list_of_interim_transport_closed: list[_listview_item] = []
         listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
 
-        status = "Done"
+        status_column_B = "Done"
+        status_column_C = "Successfully closed"
+
         for item in listview_activity.items():
             array[runner] = item
 
@@ -226,13 +228,13 @@ class Interim(GCSSTask):
 
                 if array[0].text().startswith('Arrange Interim Transport') and (
                         array[4].text() == 'Open' or array[4].text() == ''):
-                    logger.info('Arrange Interim Transport')
                     list_of_interim_transport.append(array[0])
 
                 if array[0].text().startswith('Arrange Interim Transport') and array[4].text() == 'Closed':
                     list_of_interim_transport_closed.append(array[0])
                     logger.info('Arrange Interim Transport is closed before by {}'.format(array[2].text()))
-                    status = f"Closed by {array[2].text()}"
+                    status_column_B = 'Closed before'
+                    status_column_C = f"By {array[2].text()}"
 
         # cover case TPDOC - more than 1 row Seal Mismatch is closed before
         if len(list_of_interim_transport) > 1 or len(list_of_interim_transport_closed) > 1:
@@ -247,44 +249,39 @@ class Interim(GCSSTask):
         # Return "Closed by [user]" if already closed
         if list_of_interim_transport_closed:
             self._close_windows_util_reach_first_gscc()
-            return status
+            return status_column_B, status_column_C
 
         # normal shipment
         for plan_seal in list_of_interim_transport:
-            max_attempts = 3
 
-            for attempt in range(1, max_attempts + 1):
-                try:
-                    plan_seal.select()
-                    pyautogui.hotkey('alt', 'L')
-                    self.sleep()
+            plan_seal.select()
+            pyautogui.hotkey('alt', 'L')
+            self.sleep()
 
-                    for item in listview_activity.items():
-                        array[runner] = item
-                        if runner != 5:
-                            runner = runner + 1
-                            continue
-                        runner = 0
-                        if array[0].text() == plan_seal.text() and array[0].text().startswith(
-                                'Resolve Customs Data Quality Issues'):
-                            if array[4].text() not in ['Open', '']:
-                                break  # Success, move to next activity_plan
-                    else:
-                        # If loop completes without breaking, check final attempt
-                        if attempt == max_attempts:
-                            status = "Cannot close shipment"
-                            logger.info(
-                                f"Failed to process activity plan {plan_seal.text()} after {max_attempts} attempts")
-                            return status  # Exit early if one activity fails
+            # recheck after trying to close shipment
+            runner = 0
+            array = [None for _ in range(6)]
+            capture_tasks = False
 
-                except Exception as e:
-                    logger.error(f"Error during attempt {attempt} for activity plan {plan_seal.text()}: {e}")
-                    self.sleep()
-                    if attempt == max_attempts:
-                        status = "Cannot close shipment"
-                        logger.info(
-                            f"Failed to process activity plan {plan_seal.text()} after {max_attempts} attempts")
-                        return status  # Exit early if one activity fails
+            listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
+
+            for item in listview_activity.items():
+                array[runner] = item
+
+                if runner != 5:
+                    runner = runner + 1
+                    continue
+
+                runner = 0
+
+                if array[0].text().startswith('Arrange Interim Transport'):
+                    capture_tasks = True
+                if capture_tasks is True:
+                    if array[0].text().startswith('Arrange Interim Transport') and (
+                            array[4].text() == 'Open' or array[4].text() == ''):
+                        status_column_B = 'Cannot close shipment'
+                        status_column_C = 'Shipment remains open'
+                    return status_column_B, status_column_C
 
             while True:
                 list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
@@ -294,4 +291,4 @@ class Interim(GCSSTask):
                 self.sleep()
 
         self._close_windows_util_reach_first_gscc()
-        return status
+        return status_column_B, status_column_C

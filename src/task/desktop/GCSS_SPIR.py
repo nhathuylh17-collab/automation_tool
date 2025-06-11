@@ -332,13 +332,6 @@ class GCSS_SPIR(DesktopTask):
         logger.info("Done with shipment " + shipment)
         return
 
-    # def get_letter_position(self, letter: str):
-    #     if letter.__len__() != 1:
-    #         raise Exception('Please provide the single char, not a word ! the previous input was ' + letter)
-    #     letter_to_position = {chr(i + 96): i for i in range(1, 27)}
-    #
-    #     return letter_to_position.get(letter.lower(), "Invalid input")
-
 
 class SkipToNextShipment(Exception):
     pass
