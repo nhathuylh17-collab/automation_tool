@@ -30,7 +30,7 @@ from src.observer.EventBroker import EventBroker
 from src.observer.EventHandler import EventHandler
 from src.observer.PercentChangedEvent import PercentChangedEvent
 from src.setup.packaging.path.PathResolvingService import PathResolvingService
-from src.setup.update.CheckForUpdate import update_on_demand
+from src.setup.update.CheckForUpdate import UpdateThread
 from src.task.AutomatedTask import AutomatedTask
 
 
@@ -2065,9 +2065,11 @@ class GUIApp(QMainWindow):
         # self.settings_layout.addStretch()
 
     def check_for_updates(self, status_label):
-        logger: Logger = get_current_logger()
-        logger.info('Checking your automation_tool version...')
-        update_on_demand()
+        self.update_thread = UpdateThread()
+        self.update_thread.log_signal.connect(lambda msg: self.logger.info(msg))
+        self.update_thread.status_signal.connect(status_label.setText)
+        self.update_thread.progress_signal.connect(lambda percent: self.progress_bar.setValue(percent))
+        self.update_thread.start()
 
     def download_update(self, download_url, username, token, status_label):
         """Tải xuống tệp cập nhật và lưu vào thư mục tạm thời."""

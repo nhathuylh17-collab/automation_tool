@@ -1,7 +1,6 @@
 import os
 import re
 import subprocess
-from logging import Logger
 
 import requests
 
@@ -15,57 +14,84 @@ config_file_path: str = os.path.join(PathResolvingService.get_instance().get_inp
                                      'Version_Control_Getting_Release.properties')
 api_getting_release_client_settings: dict[str, str] = load_key_value_from_file_properties(config_file_path)
 
-
-def update_on_demand():
-    local_release: Release = get_local_running_release()
-    remote_release: Release = get_latest_remote_release()
-    logger: Logger = get_current_logger()
-
-    local_version = validate_and_extract_version(local_release.tag_name)
-    logger.info('Your version is: {}'.format(local_version))
-
-    remote_version = validate_and_extract_version(remote_release.tag_name)
-    logger.info('Remote latest version is: {}'.format(remote_version))
-
-    if is_needed_update(local_version, remote_version) is False:
-        logger.info('Your version {} already latest version'.format(local_version))
-        # log here, or notify UI already latest version
-        return
-
-    logger.info('Downloading version {}'.format(remote_version))
-    logger.info(
-        'Downloaded latest version, please click "Install" and wait for completing set up'.format(remote_version))
-
-    installer_full_path: str = download_asset(remote_release)
-    process = subprocess.Popen([installer_full_path, '/NOSCREENS'],
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE,
-                               text=True)
-
-    # seems wrong, need to rewrite the below
-    # while len(get_matching_processes('Setup')) > 0:
-    #     time.sleep(1)
-
-    kill_processes('automation_tool')
+from PyQt5.QtCore import QThread, pyqtSignal
 
 
-def download_asset(remote_release: Release) -> str:
-    download_url = remote_release.assets[0].url
-    storing_dir = PathResolvingService.get_instance().get_release_notes()
-    installer_path = os.path.join(storing_dir, 'installer.exe')
+class UpdateThread(QThread):
+    log_signal = pyqtSignal(str)  # For log messages
+    status_signal = pyqtSignal(str)  # For status label updates
+    progress_signal = pyqtSignal(int)  # For download progress
 
-    headers = {
-        "Accept": "application/octet-stream",
-        "X-GitHub-Api-Version": api_getting_release_client_settings['github.release.version'],
-        "Authorization": 'Bearer ' + api_getting_release_client_settings['github.pat']
-    }
-    response = requests.get(download_url, headers=headers, stream=True)
-    response.raise_for_status()
+    def __init__(self):
+        super().__init__()
+        self.logger = get_current_logger()
 
-    with open(installer_path, 'wb') as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            f.write(chunk)
-    return installer_path
+    def run(self):
+        try:
+            local_release = get_local_running_release()
+            remote_release = get_latest_remote_release()
+
+            local_version = validate_and_extract_version(local_release.tag_name)
+            self.log_signal.emit(f'Your version is: {local_version}')
+
+            remote_version = validate_and_extract_version(remote_release.tag_name)
+            self.log_signal.emit(f'Remote latest version is: {remote_version}')
+
+            if not is_needed_update(local_version, remote_version):
+                self.log_signal.emit(f'Your version {local_version} is already the latest version')
+                self.status_signal.emit('Your version is up to date.')
+                return
+
+            self.log_signal.emit(f'Downloading version {remote_version}')
+            installer_full_path = self.download_asset_with_progress(remote_release)
+            self.log_signal.emit('Downloaded latest version, preparing to install...')
+
+            process = subprocess.Popen([installer_full_path, '/NOSCREENS'],
+                                       stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE,
+                                       text=True)
+            stdout, stderr = process.communicate()  # Wait for installer to complete
+            if process.returncode == 0:
+                self.log_signal.emit('Update installation completed successfully.')
+                self.status_signal.emit('Update installed. Please restart the application.')
+            else:
+                self.log_signal.emit(f'Update installation failed: {stderr}')
+                self.status_signal.emit('Update installation failed.')
+
+            # Optionally terminate the application after installation
+            self.log_signal.emit('Terminating application for update...')
+            kill_processes('automation_tool')
+        except Exception as e:
+            self.log_signal.emit(f'Error during update: {str(e)}')
+            self.status_signal.emit(f'Error checking for updates: {str(e)}')
+
+    def download_asset_with_progress(self, remote_release: Release) -> str:
+        download_url = remote_release.assets[0].url
+        storing_dir = PathResolvingService.get_instance().get_release_notes()
+        installer_path = os.path.join(storing_dir, f'installer_{remote_release.tag_name}.exe')  # Unique filename
+
+        headers = {
+            "Accept": "application/octet-stream",
+            "X-GitHub-Api-Version": api_getting_release_client_settings['github.release.version'],
+            "Authorization": 'Bearer ' + api_getting_release_client_settings['github.pat']
+        }
+        response = requests.get(download_url, headers=headers, stream=True)
+        response.raise_for_status()
+
+        get_current_logger().info('Getting response')
+
+        total_size = int(response.headers.get('content-length', 0))
+        downloaded = 0
+
+        with open(installer_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+                    downloaded += len(chunk)
+                    if total_size > 0:
+                        progress = int((downloaded / total_size) * 100)
+                        self.progress_signal.emit(progress)
+        return installer_path
 
 
 def is_needed_update(local_version: list[int], remote_version: list[int]) -> bool:

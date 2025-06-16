@@ -1,4 +1,5 @@
 import time
+from datetime import datetime
 from logging import Logger
 from typing import Callable
 
@@ -78,6 +79,8 @@ class AV_RCDQI(GCSSTask):
 
             try:
                 #     try to interface and open shipment
+                current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
+
                 pyautogui.hotkey('ctrl', 'o')
                 pyautogui.hotkey('shift', 'tab')
                 pyautogui.typewrite('Shipment')
@@ -96,6 +99,10 @@ class AV_RCDQI(GCSSTask):
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     3,
                                                     status_column_C)
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    4,
+                                                    current_timestamp)
+
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
                 workbook = self.excel_provider.save(workbook)
@@ -107,6 +114,7 @@ class AV_RCDQI(GCSSTask):
 
             except SkipTPDOC:
                 logger.error(f'Face an TP doc exception {shipment}')
+                current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
                 # try to save excel and skip shipment
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
@@ -114,6 +122,10 @@ class AV_RCDQI(GCSSTask):
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     3,
                                                     'Have TPDoc')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    4,
+                                                    current_timestamp)
+
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
                 self.excel_provider.save(workbook)
@@ -122,6 +134,7 @@ class AV_RCDQI(GCSSTask):
             except BaseException as e:
 
                 logger.info(f'Cannot handle shipment {shipment}. \n {e} \nMoving to next shipment')
+                current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
 
                 if len(get_matching_processes('GCSS')) == 0:
                     self._pre_actions()
@@ -134,6 +147,9 @@ class AV_RCDQI(GCSSTask):
                                                     3,
                                                     'Cannot handle shipment {}, please check manual'.format(
                                                         shipment))
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    4,
+                                                    current_timestamp)
                 self.excel_provider.save(workbook)
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
