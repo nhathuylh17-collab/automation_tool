@@ -11,7 +11,7 @@ from typing import Dict, Optional
 import pythoncom
 import requests
 import win32com.client
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QPropertyAnimation, QEasingCurve, QRect
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QPropertyAnimation, QEasingCurve, QRect, QSize
 from PyQt5.QtGui import QFont, QPixmap, QIcon
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
                              QTextEdit, QProgressBar, QFrame, QMessageBox, QScrollArea, QSplitter, QCheckBox, QComboBox,
@@ -358,8 +358,20 @@ class GUIApp(QMainWindow):
         left_layout.addWidget(scroll_area)
 
         for menu in self.sidebar_menus:
-            btn = QPushButton(menu)
+            btn = QPushButton()
+            icon_path = os.path.join(PathResolvingService.get_instance().resolve('resource'), "icon",
+                                     {"HomePage": "warehouse.png",
+                                      "Website": "truck-side.png",
+                                      "Desktop App": "vessel-side-arrow-down-up.png",
+                                      "Arbitrary": "airplane.png",
+                                      "Setting": "cog.png"}.get(menu, ""))
+            if os.path.exists(icon_path):
+                btn.setIcon(QIcon(icon_path))
+                btn.setIconSize(QSize(16, 16))  # Adjust size as needed
+            btn.setText(menu)
             btn.setFont(QFont("Maersk Headline", 10))
+            btn.setMinimumWidth(280)
+
             if menu in ["Website", "Desktop App", "Arbitrary"]:
                 btn.setStyleSheet("""
                     QPushButton {
@@ -370,8 +382,8 @@ class GUIApp(QMainWindow):
                         width: 100%;
                         text-align: left;
                         font-weight: normal;
-                        min-width: 0;
-                        max-width: 100%;
+                        min-width: 150px;
+                        max-width: none;
                         white-space: normal;
                     }
                     QPushButton:hover {
@@ -389,8 +401,8 @@ class GUIApp(QMainWindow):
                         width: 100%;
                         text-align: left;
                         font-weight: bold;
-                        min-width: 0;
-                        max-width: 100%;
+                        min-width: 150px;
+                        max-width: none;
                         white-space: normal;
                     }
                     QPushButton:hover {
@@ -485,7 +497,18 @@ class GUIApp(QMainWindow):
         button_layout = QHBoxLayout(self.button_frame)
         button_layout.setSpacing(10)
 
+        # Resolve icon paths using PathResolvingService
+        resource_dir = PathResolvingService.get_instance().resolve('resource')
+        icon_dir = os.path.join(resource_dir, "icon")
+
+        perform_icon_path = os.path.join(icon_dir, "play.png")
+        pause_icon_path = os.path.join(icon_dir, "pause.png")
+        reset_icon_path = os.path.join(icon_dir, "arrows-left-right.png")
+
         self.perform_button = QPushButton("Perform")
+        self.perform_button.setIcon(QIcon(perform_icon_path))
+        self.perform_button.setIconSize(QSize(26, 26))
+
         self.perform_button.setFont(QFont("Maersk Headline", 11))
         self.perform_button.setStyleSheet("""
             QPushButton {
@@ -494,6 +517,7 @@ class GUIApp(QMainWindow):
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
+                text-align: center;
             }
             QPushButton:hover {
                 background-color: #42B0D5;
@@ -506,6 +530,9 @@ class GUIApp(QMainWindow):
         button_layout.addWidget(self.perform_button)
 
         self.pause_button = QPushButton("Pause")
+        self.pause_button.setIcon(QIcon(pause_icon_path))
+        self.pause_button.setIconSize(QSize(26, 26))
+
         self.pause_button.setFont(QFont("Maersk Headline", 11))
         self.pause_button.setStyleSheet("""
             QPushButton {
@@ -526,6 +553,9 @@ class GUIApp(QMainWindow):
         button_layout.addWidget(self.pause_button)
 
         self.reset_button = QPushButton("Reset")
+        self.reset_button.setIcon(QIcon(reset_icon_path))
+        self.reset_button.setIconSize(QSize(26, 26))
+
         self.reset_button.setFont(QFont("Maersk Headline", 11))
         self.reset_button.setStyleSheet("""
             QPushButton {
@@ -723,8 +753,8 @@ class GUIApp(QMainWindow):
                     width: 100%;
                     text-align: left;
                     font-weight: normal;
-                    min-width: 0;
-                    max-width: 100%;
+                    min-width: 200px;
+                    max-width: none;
                     white-space: normal;
                 }
                 QPushButton:hover {

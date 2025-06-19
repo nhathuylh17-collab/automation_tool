@@ -14,7 +14,8 @@ class PDF_rename(AutomatedTask):
         super().__init__(settings, callback_before_run_task)
 
     def mandatory_settings(self) -> list[str]:
-        mandatory_keys: list[str] = ['excel.path', 'excel.sheet', 'folder_docs.folder', 'old_names', 'new_names']
+        mandatory_keys: list[str] = ['excel.path', 'excel.sheet', 'folder_docs.folder', 'old_names', 'new_names',
+                                     'file_type']
         return mandatory_keys
 
     def clear_worksheet(self, worksheet):
@@ -44,6 +45,8 @@ class PDF_rename(AutomatedTask):
         new_names: list[str] = get_excel_data_in_column_start_at_row(self._settings['excel.path'],
                                                                      self._settings['excel.sheet'],
                                                                      self._settings['new_names'])
+        file_type = self._settings['file_type']
+        type = file_type.lower().lstrip('.')
 
         if not old_names or not new_names:
             logger.error("Excel file contains no valid data in columns A or B.")
@@ -59,8 +62,9 @@ class PDF_rename(AutomatedTask):
             if old_name and new_name:  # Skip empty or None values
                 old_name = str(old_name).strip()
                 new_name = str(new_name).strip()
-                old_name = old_name if old_name.lower().endswith('.pdf') else f"{old_name}.pdf"
-                new_name = new_name if new_name.lower().endswith('.pdf') else f"{new_name}.pdf"
+                # dang bi loi cho nay, chi rename khi maping, voi nhung file chua dc map tool loi
+                old_name = old_name if old_name.lower().endswith(f".{type}") else f"{old_name}.{type}"
+                new_name = new_name if new_name.lower().endswith(f".{type}") else f"{new_name}.{type}"
                 mapping[old_name] = new_name
 
         logger.info(f"Loaded {len(mapping)} name mappings from Excel sheet: {sheet_name}")
