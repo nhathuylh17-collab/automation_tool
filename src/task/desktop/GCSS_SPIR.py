@@ -1,3 +1,5 @@
+import time
+from datetime import datetime
 from logging import Logger
 from typing import Callable
 
@@ -7,13 +9,14 @@ from pywinauto import Application, WindowSpecification
 from pywinauto.controls.common_controls import ListViewWrapper, _listview_item
 
 from src.common.FileUtil import get_excel_data_in_column_start_at_row
+from src.common.ProcessUtil import get_matching_processes
 from src.common.ThreadLocalLogger import get_current_logger
 from src.excel_reader_provider.ExcelReaderProvider import ExcelReaderProvider
 from src.excel_reader_provider.XlwingProvider import XlwingProvider
-from src.task.DesktopTask import DesktopTask
+from src.task.GCSSTask import GCSSTask
 
 
-class GCSS_SPIR(DesktopTask):
+class GCSS_SPIR(GCSSTask):
 
     def __init__(self, settings: dict[str, str], callback_before_run_task: Callable[[], None]):
         super().__init__(settings, callback_before_run_task)
@@ -21,14 +24,15 @@ class GCSS_SPIR(DesktopTask):
         self.excel_provider: ExcelReaderProvider = None
         self.current_worksheet = None
         # self.current_status_excel_col_index: int = 0
-        self.current_status_excel_row_index: int = 5
+        self.current_status_excel_row_index: int = 2
 
     def mandatory_settings(self) -> list[str]:
-        mandatory_keys: list[str] = ['excel.path', 'excel.sheet', 'excel.shipment', 'excel.status.trucking',
-                                     'excel.status.cell']
+        desktop_mandatory_keys: list[str] = super().mandatory_settings()
+        mandatory_keys: list[str] = ['excel.path', 'excel.sheet', 'excel.shipment']
+        mandatory_keys.extend(desktop_mandatory_keys)
         return mandatory_keys
 
-    def automate(self):
+    def automate_gcss(self):
         logger: Logger = get_current_logger()
 
         self.excel_provider: ExcelReaderProvider = XlwingProvider()
@@ -44,16 +48,13 @@ class GCSS_SPIR(DesktopTask):
                                                                      self._settings['excel.sheet'],
                                                                      self._settings['excel.shipment'])
 
-        self._wait_for_window('Pending Tray')
-        self._window_title_stack.append('Pending Tray')
-
         self.current_element_count = 0
         self.total_element_size = len(shipments)
 
-        for i, shipment in enumerate(shipments):
-            self._wait_for_window('Pending Tray')
+        self._wait_for_window('Pending Tray')
+        self._window_title_stack.append('Pending Tray')
 
-            # dont have to care about this, just only apply for progress bar in GUI APP
+        for i, shipment in enumerate(shipments):
             if self.terminated is True:
                 return
 
@@ -66,10 +67,18 @@ class GCSS_SPIR(DesktopTask):
                 if self.terminated is True:
                     return
 
+            print('START_FLOW current gcss process count {}'.format(len(get_matching_processes('GCSS'))))
+            if len(get_matching_processes('GCSS')) == 0:
+                self._pre_actions()
+
+            self._wait_for_window('Pending Tray')
+
             # return to code
             logger.info("Start process shipment " + shipment)
 
             try:
+
+                current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
 
                 pyautogui.hotkey('ctrl', 'o')
                 pyautogui.typewrite(shipment)
@@ -81,57 +90,114 @@ class GCSS_SPIR(DesktopTask):
                     self._wait_for_window(shipment)
                 except:
                     self.handle_invalid_window(shipment, workbook)
-                    self.current_status_excel_row_index += 1
-                    self.current_element_count += 1
-                    continue
 
-                try:
-                    self.process_on_each_shipment(shipment)
-                except SkipToNextShipment:
-                    self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
-                                                        2, 'Discharge')
-                    self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
-                                                        3, 'Skip')
-                    self.current_status_excel_row_index += 1
-                    self.current_element_count += 1
+                    self._wait_for_window(shipment)
 
-                    self.excel_provider.save(workbook)
-                    continue
-                except Skipnoactivity:
+                    status_column_B, status_column_C = self.process_on_each_shipment_adhoc(shipment)
+
                     self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
-                                                        2, 'No Activity')
+                                                        2, status_column_B)
                     self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
-                                                        3, 'Skip')
-                    self.current_status_excel_row_index += 1
-                    self.current_element_count += 1
+                                                        3, status_column_C)
+                    self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                        4,
+                                                        current_timestamp)
 
                     self.excel_provider.save(workbook)
+
+                    logger.info("Done with shipment " + shipment)
+
+                    self.current_status_excel_row_index += 1
+                    self.current_element_count += 1
                     continue
+
+                status_column_B, status_column_C = self.process_on_each_shipment(shipment)
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
-                                                    3, 'Done')
+                                                    2, status_column_B)
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    3, status_column_C)
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    4,
+                                                    current_timestamp)
+
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
                 self.excel_provider.save(workbook)
 
                 logger.info("Done with shipment " + shipment)
 
-            except Exception:
+                print(
+                    'END_FLOW current gcss process count {}'.format(len(get_matching_processes('GCSS'))))
+                time.sleep(3)
+
+            except SkipToNextShipment as e:
+                current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
+
+                status_column_B = e.status_b
+                status_column_C = e.status_c
+
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    2, status_column_B)
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    3, status_column_C)
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    4,
+                                                    current_timestamp)
+                self.current_status_excel_row_index += 1
+                self.current_element_count += 1
+
+                self.excel_provider.save(workbook)
+                continue
+
+            except Skipnoactivity as e:
+                current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
+
+                status_column_B = e.status_b
+                status_column_C = e.status_c
+
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    2, status_column_B)
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    3, status_column_C)
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    4,
+                                                    current_timestamp)
+                self.current_status_excel_row_index += 1
+                self.current_element_count += 1
+
+                self.excel_provider.save(workbook)
+                continue
+
+            except BaseException as e:
+                logger.info(f'Cannot handle shipment {shipment}. \n {e} \nMoving to next shipment')
+                current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
+
+                if len(get_matching_processes('GCSS')) == 0:
+                    self._pre_actions()
+                else:
+                    self._close_windows_util_reach_first_gscc()
+
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    2,
+                                                    'Error - Skip')
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     3,
                                                     'Cannot handle shipment {}, please check manual'.format(shipment))
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    4,
+                                                    current_timestamp)
                 self.excel_provider.save(workbook)
-                logger.info(f'Cannot handle shipment {shipment}. Moving to next shipment')
-                self._wait_for_window('Pending Tray')
-                # self._close_windows_util_reach_first_gscc()
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
                 continue
 
-            # self.current_status_excel_row_index += 1
-            # self.current_element_count += 1
-
-        self.excel_provider.save(workbook)
-        self.excel_provider.close(workbook)
+        try:
+            self.excel_provider.save(workbook)
+        except BaseException as e:
+            logger.debug("Cannot save excel file")
+        finally:
+            self.excel_provider.close(workbook)
+            self.excel_provider.quit_session()
 
     def process_on_each_shipment(self, shipment):
         logger: Logger = get_current_logger()
@@ -142,21 +208,20 @@ class GCSS_SPIR(DesktopTask):
         self._app: Application = Application().connect(title=self._window_title_stack.peek())
         self._window: WindowSpecification = self._app.window(title=self._window_title_stack.peek())
 
-        pyautogui.hotkey('ctrl', 'k')
-        self.sleep()
+        while True:
+            pyautogui.hotkey('ctrl', 'k')
+            list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
+            if list_views.__len__() == 2:
+                break
+            self.sleep()
 
         list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")[1]
-        items = list_views.items()  # Chuyển items() thành danh sách để kiểm tra
-        if not items:  # Nếu không có item nào
+        items = list_views.items()
+
+        if not items:
             logger.info('Not found any activity in {}, skip to next shipment'.format(shipment))
-            self._wait_for_window(shipment)
-            pyautogui.hotkey('alt', 'E')
-            self.sleep()
-            pyautogui.hotkey('left')
-            self.sleep()
-            pyautogui.hotkey('C')
-            self._wait_for_window('Pending Tray')
-            raise Skipnoactivity()
+            self._close_windows_util_reach_first_gscc()
+            raise Skipnoactivity(status_b="Skip", status_c="No activity found")
 
         runner = 0
         array = [None for _ in range(8)]
@@ -169,25 +234,13 @@ class GCSS_SPIR(DesktopTask):
 
             runner = 0
 
-            if 'LOAD' in array[3]:
-                self.into_activity_shipment()
-                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
-                                                    2, 'Load')
+            if 'LOAD' in array[3] or 'DISCHARG' in array[3]:
+                return self.into_activity_shipment(shipment)
 
-                # pyautogui.hotkey('alt', 'k')
-                # self.sleep()
-                break
-
-            if array[3] is None:
-                logger.info(f"Not found 'Load' in shipment {shipment}. Skipping to next shipment.")
-                self._wait_for_window(shipment)
-                pyautogui.hotkey('alt', 'E')
-                self.sleep()
-                pyautogui.hotkey('left')
-                self.sleep()
-                pyautogui.hotkey('C')
-                self._wait_for_window('Pending Tray')
-                raise SkipToNextShipment()
+            else:
+                logger.info(f"Not found Load or Discharge in shipment {shipment}. Skipping to next shipment.")
+                self._close_windows_util_reach_first_gscc()
+                raise SkipToNextShipment(status_b="Skip", status_c="Shipment not Load or Discharge")
 
     def process_on_each_shipment_adhoc(self, shipment):
         logger: Logger = get_current_logger()
@@ -199,24 +252,24 @@ class GCSS_SPIR(DesktopTask):
         self._app: Application = Application().connect(title=self._window_title_stack.peek())
         self._window: WindowSpecification = self._app.window(title=self._window_title_stack.peek())
 
-        pyautogui.hotkey('ctrl', 'k')
-        self.sleep()
+        while True:
+            pyautogui.hotkey('ctrl', 'k')
+            list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
+            if list_views.__len__() == 2:
+                break
+            self.sleep()
 
         list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")[1]
-        items = list_views.items()  # Chuyển items() thành danh sách để kiểm tra
-        if not items:  # Nếu không có item nào
+        items = list_views.items()
+
+        if not items:
             logger.info('Not found any activity in {}, skip to next shipment'.format(shipment))
-            self._wait_for_window(shipment)
-            pyautogui.hotkey('alt', 'E')
-            self.sleep()
-            pyautogui.hotkey('left')
-            self.sleep()
-            pyautogui.hotkey('C')
-            self._wait_for_window('Pending Tray')
-            raise Skipnoactivity()
+            self._close_windows_util_reach_first_gscc()
+            raise Skipnoactivity(status_b="Skip", status_c="No activity found")
 
         runner = 0
         array = [None for _ in range(8)]
+
         for item in list_views.items():
 
             array[runner] = item.text()
@@ -226,24 +279,16 @@ class GCSS_SPIR(DesktopTask):
                 continue
 
             runner = 0
-            if 'LOAD' in array[3]:
-                self.into_activity_shipment()
-                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
-                                                    2, 'Load')
-                self.sleep()
-                break
+            if 'LOAD' in array[3] or 'DISCHARG' in array[3]:
+                return self.into_activity_shipment(shipment)
 
-            if array[3] is None:
+            else:
                 logger.info(f"Not found 'Load' in shipment {shipment}. Skipping to next shipment.")
-                pyautogui.hotkey('alt', 'E')
-                self.sleep()
-                pyautogui.hotkey('left')
-                self.sleep()
-                pyautogui.hotkey('C')
-                self._wait_for_window('Pending Tray')
-                raise SkipToNextShipment()
+                self._close_windows_util_reach_first_gscc()
+                raise SkipToNextShipment(status_b="Skip", status_c="Shipment not Load or Discharge")
 
-    def into_activity_shipment(self):
+    def into_activity_shipment(self, shipment):
+        logger: Logger = get_current_logger()
 
         while True:
             pyautogui.hotkey('ctrl', 't')
@@ -258,9 +303,12 @@ class GCSS_SPIR(DesktopTask):
         tasks_to_capture = 0
 
         array = [None for _ in range(6)]
-        list_of_activity_plan: list[_listview_item] = []
-        list_of_activity_plan_split: list[_listview_item] = []
+        list_of_activity_plan_open: list[_listview_item] = []
+        list_of_activity_plan_closed: list[_listview_item] = []
         listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
+
+        status_column_B = "Done"
+        status_column_C = "Successfully closed"
 
         for item in listview_activity.items():
             array[runner] = item
@@ -279,39 +327,82 @@ class GCSS_SPIR(DesktopTask):
             # If capturing, take the next two tasks (regardless of their status)
             if capture_tasks is True and tasks_to_capture > 0:
 
-                if array[0].text().startswith('OPS (') and array[4].text() == 'Open':
-                    list_of_activity_plan.append(array[0])
+                if array[0].text().startswith('OPS (') and (array[4].text() == 'Open' or array[4].text() == ''):
+                    list_of_activity_plan_open.append(array[0])
 
                 if array[0].text().startswith('OPS (') and array[4].text() == 'Closed':
-                    list_of_activity_plan_split.append(array[0])
+                    list_of_activity_plan_closed.append(array[0])
+                    status_column_B = 'Closed before'
+                    status_column_C = f"By {array[2].text()}"
 
                 tasks_to_capture -= 1
 
                 if tasks_to_capture == 0:
                     capture_tasks = False
+        self.sleep()
 
-        for activity_plan in list_of_activity_plan:
+        # Confirm all three tasks are closed
+        if len(list_of_activity_plan_closed) == 3:
+            self._close_windows_util_reach_first_gscc()
+            return status_column_B, status_column_C
+
+        for activity_plan in list_of_activity_plan_open:
             activity_plan.select()
             pyautogui.hotkey('alt', 'l')
             activity_plan.deselect()
             self.sleep()
 
-        pyautogui.hotkey('alt', 'i')
-        self.sleep()
+            # Recheck the status of all tasks after attempting to close
+            array = [None for _ in range(6)]
+            runner = 0
+            capture_tasks = False
+            tasks_to_capture = 0
+            open_task = 0
 
-        pyautogui.hotkey('q')
-        self.sleep()
-        pyautogui.hotkey('p')
-        self.sleep()
+            listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
 
-        pyautogui.hotkey('alt', 'e')
-        self.sleep()
-        pyautogui.hotkey('left')
-        self.sleep()
-        pyautogui.hotkey('c')
-        self.sleep()
-        self._wait_for_window('Pending Tray')
-        self._window_title_stack.append('Pending Tray')
+            for item in listview_activity.items():
+                array[runner] = item
+
+                if runner != 5:
+                    runner += 1
+                    continue
+
+                runner = 0
+
+                # Find 'OPS (EQUIPMENT PICKUP)' and start capturing the next 2 tasks
+                if array[0].text().startswith('OPS (EQUIPMENT PICKUP)'):
+                    capture_tasks = True
+                    tasks_to_capture = 3
+
+                # Check status of the three tasks
+                if capture_tasks is True and tasks_to_capture > 0:
+                    if array[0].text().startswith('OPS (') and (
+                            array[4].text() == 'Open' or array[4].text() == ''):
+                        open_task += 1
+
+                    tasks_to_capture -= 1
+
+                    if tasks_to_capture == 0:
+                        capture_tasks = False
+
+            # Confirm all three tasks are closed
+            if open_task >= 1:
+                status_column_B = "Cannot close shipment"
+                status_column_C = "Shipment remains open"
+                return status_column_B, status_column_C
+
+            self.handle_task_prepaid()
+
+        while True:
+            list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
+            pyautogui.hotkey('ctrl', 't')
+            if list_views.__len__() == 1:
+                break
+            self.sleep()
+
+        self._close_windows_util_reach_first_gscc()
+        return status_column_B, status_column_C
 
     def handle_invalid_window(self, shipment: str, workbook):
         logger: Logger = get_current_logger()
@@ -323,19 +414,28 @@ class GCSS_SPIR(DesktopTask):
         pyautogui.hotkey('shift', 'tab')
         pyautogui.hotkey('down')
         pyautogui.hotkey('alt', 'k')
-        self._wait_for_window(shipment)
-        self.process_on_each_shipment_adhoc(shipment)
-        self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
-                                            3, 'Done')
-        self.excel_provider.save(workbook)
-
-        logger.info("Done with shipment " + shipment)
         return
+
+    def handle_task_prepaid(self):
+        pyautogui.hotkey('alt', 'i')
+        self.sleep()
+
+        pyautogui.hotkey('q')
+        self.sleep()
+
+        pyautogui.hotkey('p')
+        self.sleep()
 
 
 class SkipToNextShipment(Exception):
-    pass
+    def __init__(self, status_b: str = "Skip", status_c: str = "Shipment not Load or Discharge)"):
+        self.status_b = status_b
+        self.status_c = status_c
+        super().__init__()
 
 
 class Skipnoactivity(Exception):
-    pass
+    def __init__(self, status_b: str = "Skip", status_c: str = "No activity found"):
+        self.status_b = status_b
+        self.status_c = status_c
+        super().__init__()
