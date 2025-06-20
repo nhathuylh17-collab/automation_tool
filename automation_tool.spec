@@ -8,7 +8,7 @@ our_datas = [
     ('resource', 'resource'),
     ('LICENSE', 'LICENSE'),
     ('src/task/web', 'src/task/web'),
-    ('src/task/desktop', 'src/task/desktop'),
+    ('src/task/gcss', 'src/task/gcss'),
     ('src/task/arbitrary', 'src/task/arbitrary'),
     ('src', 'src')
 ]

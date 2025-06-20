@@ -184,7 +184,7 @@ class GUIApp(QMainWindow):
         self.current_task_name = None
         self.is_task_currently_pause = False
         self.task_buttons = {}
-        self.sidebar_menus = ["HomePage", "Website", "Desktop App", "Arbitrary", "Setting"]
+        self.sidebar_menus = ["HomePage", "Website", "GCSS App", "Arbitrary", "Setting"]
 
         self.setWindowTitle("Maersk GSC VN Automation Toolkit")
         self.resize(1400, 800)
@@ -362,7 +362,7 @@ class GUIApp(QMainWindow):
             icon_path = os.path.join(PathResolvingService.get_instance().resolve('resource'), "icon",
                                      {"HomePage": "warehouse.png",
                                       "Website": "truck-side.png",
-                                      "Desktop App": "vessel-side-arrow-down-up.png",
+                                      "GCSS App": "vessel-side-arrow-down-up.png",
                                       "Arbitrary": "airplane.png",
                                       "Setting": "cog.png"}.get(menu, ""))
             if os.path.exists(icon_path):
@@ -372,7 +372,7 @@ class GUIApp(QMainWindow):
             btn.setFont(QFont("Maersk Headline", 10))
             btn.setMinimumWidth(280)
 
-            if menu in ["Website", "Desktop App", "Arbitrary"]:
+            if menu in ["Website", "GCSS App", "Arbitrary"]:
                 btn.setStyleSheet("""
                     QPushButton {
                         background-color: #FFFFFF;
@@ -412,9 +412,9 @@ class GUIApp(QMainWindow):
                 """)
             if menu == "HomePage":
                 btn.clicked.connect(lambda checked, m=menu: self.handle_homepage(m))
-            elif menu in ["Website", "Desktop App", "Arbitrary"]:
+            elif menu in ["Website", "GCSS App", "Arbitrary"]:
                 btn.clicked.connect(lambda checked, m=menu: self.toggle_task_list(m, {"Website": "web",
-                                                                                      "Desktop App": "desktop",
+                                                                                      "GCSS App": "gcss",
                                                                                       "Arbitrary": "arbitrary"}[m]))
             elif menu == "Setting":
                 # self.logging_textbox.setVisible(False)
@@ -741,8 +741,10 @@ class GUIApp(QMainWindow):
 
         self.task_buttons[menu] = []
         menu_index = self.sidebar_menus.index(menu)
+
         for task_name in task_files:
             task_btn = QPushButton(task_name)
+
             task_btn.setFont(QFont("Maersk Headline", 10))
             task_btn.setStyleSheet("""
                 QPushButton {
