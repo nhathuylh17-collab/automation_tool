@@ -332,8 +332,6 @@ class GCSS_SPIR(GCSSTask):
 
                 if array[0].text().startswith('OPS (') and array[4].text() == 'Closed':
                     list_of_activity_plan_closed.append(array[0])
-                    status_column_B = 'Closed before'
-                    status_column_C = f"By {array[2].text()}"
 
                 tasks_to_capture -= 1
 
@@ -341,58 +339,52 @@ class GCSS_SPIR(GCSSTask):
                     capture_tasks = False
         self.sleep()
 
-        # Confirm all three tasks are closed
-        if len(list_of_activity_plan_closed) == 3:
-            self._close_windows_util_reach_first_gscc()
-            return status_column_B, status_column_C
-
         for activity_plan in list_of_activity_plan_open:
             activity_plan.select()
             pyautogui.hotkey('alt', 'l')
             activity_plan.deselect()
             self.sleep()
 
-            # Recheck the status of all tasks after attempting to close
-            array = [None for _ in range(6)]
+        # Recheck the status of all tasks after attempting to close
+        array = [None for _ in range(6)]
+        runner = 0
+        capture_tasks = False
+
+        list_of_activity_send_invoice: list[_listview_item] = []
+        list_of_activity_send_invoice_closed: list[_listview_item] = []
+        listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
+
+        for item in listview_activity.items():
+            array[runner] = item
+
+            if runner != 5:
+                runner += 1
+                continue
+
             runner = 0
-            capture_tasks = False
-            tasks_to_capture = 0
-            open_task = 0
 
-            listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
+            # Find 'Send Prepaid Invoice Request' and check status
+            if array[0].text().startswith('Send Prepaid Invoice Request'):
+                capture_tasks = True
 
-            for item in listview_activity.items():
-                array[runner] = item
+            if capture_tasks is True:
 
-                if runner != 5:
-                    runner += 1
-                    continue
+                if array[0].text().startswith('Send Prepaid Invoice Request') and (
+                        array[4].text() == 'Open' or array[4].text() == ''):
+                    list_of_activity_send_invoice.append(array[0])
 
-                runner = 0
+                if array[0].text().startswith('Send Prepaid Invoice Request') and array[4].text() == 'Closed':
+                    list_of_activity_send_invoice_closed.append(array[0])
+                    status_column_B = 'Closed before'
+                    status_column_C = f"By {array[2].text()}"
 
-                # Find 'OPS (EQUIPMENT PICKUP)' and start capturing the next 2 tasks
-                if array[0].text().startswith('OPS (EQUIPMENT PICKUP)'):
-                    capture_tasks = True
-                    tasks_to_capture = 3
+        if list_of_activity_send_invoice_closed:
+            self._close_windows_util_reach_first_gscc()
+            return status_column_B, status_column_C
 
-                # Check status of the three tasks
-                if capture_tasks is True and tasks_to_capture > 0:
-                    if array[0].text().startswith('OPS (') and (
-                            array[4].text() == 'Open' or array[4].text() == ''):
-                        open_task += 1
-
-                    tasks_to_capture -= 1
-
-                    if tasks_to_capture == 0:
-                        capture_tasks = False
-
-            # Confirm all three tasks are closed
-            if open_task >= 1:
-                status_column_B = "Cannot close shipment"
-                status_column_C = "Shipment remains open"
-                return status_column_B, status_column_C
-
-            self.handle_task_prepaid()
+        if list_of_activity_send_invoice:
+            status_column_B, status_column_C = self.handle_task_prepaid()
+            return status_column_B, status_column_C
 
         while True:
             list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
@@ -417,14 +409,63 @@ class GCSS_SPIR(GCSSTask):
         return
 
     def handle_task_prepaid(self):
-        pyautogui.hotkey('alt', 'i')
-        self.sleep()
+        logger: Logger = get_current_logger()
+        max_retries = 3
+        retry_count = 0
 
-        pyautogui.hotkey('q')
-        self.sleep()
+        while retry_count < max_retries:
+            self.sleep()
+            pyautogui.hotkey('alt', 'i')
+            self.sleep()
+            pyautogui.hotkey('q')
+            self.sleep()
+            pyautogui.hotkey('p')
+            self.sleep()
 
-        pyautogui.hotkey('p')
-        self.sleep()
+            while True:
+                list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
+                pyautogui.hotkey('ctrl', 't')
+                if list_views.__len__() == 1:
+                    break
+                self.sleep()
+
+            # Recheck the status of all tasks after attempting to close
+            array = [None for _ in range(6)]
+            runner = 0
+            capture_tasks = False
+            open_task = 0
+
+            listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
+
+            for item in listview_activity.items():
+                array[runner] = item
+
+                if runner != 5:
+                    runner += 1
+                    continue
+
+                runner = 0
+
+                # Find 'Send Prepaid Invoice Request' and check status
+                if array[0].text().startswith('Send Prepaid Invoice Request'):
+                    capture_tasks = True
+
+                if capture_tasks is True:
+                    if array[0].text().startswith('Send Prepaid Invoice Request') and (
+                            array[4].text() == 'Open' or array[4].text() == ''):
+                        open_task += 1
+
+            # If no open tasks found, exit the retry loop
+            if open_task == 0:
+                logger.info("Prepaid task closed successfully")
+                return "Done", "Successfully closed"
+
+            retry_count += 1
+            logger.info(f"Prepaid task remains open, retrying ({retry_count}/{max_retries})")
+
+        # If max retries reached and task still open, log the failure
+        logger.info("Max retries reached, prepaid task could not be closed")
+        return "Cannot close shipment", "Shipment remains open"
 
 
 class SkipToNextShipment(Exception):
