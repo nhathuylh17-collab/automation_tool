@@ -60,7 +60,10 @@ class UpdateThread(QThread):
 
             # Optionally terminate the application after installation
             self.log_signal.emit('Terminating application for update...')
+
             kill_processes('automation_tool')
+            kill_processes('Maersk GSC VN Automation Toolkit')
+
         except Exception as e:
             self.log_signal.emit(f'Error during update: {str(e)}')
             self.status_signal.emit(f'Error checking for updates: {str(e)}')

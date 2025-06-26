@@ -172,10 +172,8 @@ class GCSS_SPIR(GCSSTask):
                 logger.info(f'Cannot handle shipment {shipment}. \n {e} \nMoving to next shipment')
                 current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
 
-                if len(get_matching_processes('GCSS')) == 0:
+                if len(get_matching_processes('GCSS')) > 0:
                     self._pre_actions()
-                else:
-                    self._close_windows_util_reach_first_gscc()
 
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
@@ -329,9 +327,11 @@ class GCSS_SPIR(GCSSTask):
 
                 if array[0].text().startswith('OPS (') and (array[4].text() == 'Open' or array[4].text() == ''):
                     list_of_activity_plan_open.append(array[0])
+                    logger.info('Opening')
 
                 if array[0].text().startswith('OPS (') and array[4].text() == 'Closed':
                     list_of_activity_plan_closed.append(array[0])
+                    logger.info('Closed before by {}'.format(array[2].text()))
 
                 tasks_to_capture -= 1
 
@@ -375,6 +375,8 @@ class GCSS_SPIR(GCSSTask):
 
                 if array[0].text().startswith('Send Prepaid Invoice Request') and array[4].text() == 'Closed':
                     list_of_activity_send_invoice_closed.append(array[0])
+                    logger.info('Closed before by {}'.format(array[2].text()))
+
                     status_column_B = 'Closed before'
                     status_column_C = f"By {array[2].text()}"
 

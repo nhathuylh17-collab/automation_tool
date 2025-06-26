@@ -135,10 +135,8 @@ class AV_RSM(GCSSTask):
                 logger.info(f'Cannot handle shipment {shipment}. \n {e} \nMoving to next shipment')
                 current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
 
-                if len(get_matching_processes('GCSS')) == 0:
+                if len(get_matching_processes('GCSS')) > 0:
                     self._pre_actions()
-                else:
-                    self._close_windows_util_reach_first_gscc()
 
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
@@ -270,8 +268,9 @@ class AV_RSM(GCSSTask):
 
         # normal shipment
         for plan_seal in list_of_activity_plan_seal:
-
+            self.sleep()
             plan_seal.select()
+            self.sleep()
             pyautogui.hotkey('alt', 'L')
             self.sleep()
 
@@ -298,6 +297,7 @@ class AV_RSM(GCSSTask):
                             array[4].text() == 'Open' or array[4].text() == ''):
                         status_column_B = 'Cannot close shipment'
                         status_column_C = 'Shipment remains open'
+                        logger.info('{} is still {}'.format(array[0].text(), array[4].text()))
                     return status_column_B, status_column_C
 
         while True:

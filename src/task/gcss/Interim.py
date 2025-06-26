@@ -134,10 +134,9 @@ class Interim(GCSSTask):
                 logger.info(f'Cannot handle shipment {shipment}. \n {e} \nMoving to next shipment')
                 current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
 
-                if len(get_matching_processes('GCSS')) == 0:
+                if len(get_matching_processes('GCSS')) > 0:
                     self._pre_actions()
-                else:
-                    self._close_windows_util_reach_first_gscc()
+
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
                                                     'Error - Skip')
@@ -190,8 +189,6 @@ class Interim(GCSSTask):
             if list_views.__len__() == 1:
                 break
             self.sleep()
-
-            # Hàm tìm ComboBox có Edit bên trong
 
         def find_editable_combobox(control):
             if control.class_name() == "ComboBox" and control.control_id() == 50001:
@@ -295,6 +292,7 @@ class Interim(GCSSTask):
                             array[4].text() == 'Open' or array[4].text() == ''):
                         status_column_B = 'Cannot close shipment'
                         status_column_C = 'Shipment remains open'
+                        logger.info('{} is still {}'.format(array[0].text(), array[4].text()))
                     return status_column_B, status_column_C
 
             while True:

@@ -136,7 +136,7 @@ class AV_RCDQI(GCSSTask):
                 logger.info(f'Cannot handle shipment {shipment}. \n {e} \nMoving to next shipment')
                 current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
 
-                if len(get_matching_processes('GCSS')) == 0:
+                if len(get_matching_processes('GCSS')) > 0:
                     self._pre_actions()
                 else:
                     self._close_windows_util_reach_first_gscc()
@@ -150,6 +150,7 @@ class AV_RCDQI(GCSSTask):
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     4,
                                                     current_timestamp)
+
                 self.excel_provider.save(workbook)
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
@@ -274,7 +275,9 @@ class AV_RCDQI(GCSSTask):
 
         # normal shipment
         for activity_plan in list_of_activity_plan:
+            self.sleep()
             activity_plan.select()
+            self.sleep()
             pyautogui.hotkey('alt', 'h')
             self.sleep()
             pyautogui.hotkey('left')
@@ -285,6 +288,7 @@ class AV_RCDQI(GCSSTask):
             pyautogui.hotkey('right')
             self.sleep()
             pyautogui.hotkey('down')
+            self.sleep()
             pyautogui.hotkey('enter')
             activity_plan.deselect()
             self.sleep()
@@ -312,6 +316,7 @@ class AV_RCDQI(GCSSTask):
                             array[4].text() == 'Open' or array[4].text() == ''):
                         status_column_B = 'Cannot close shipment'
                         status_column_C = 'Shipment remains open'
+                        logger.info('{} is still {}'.format(array[0].text(), array[4].text()))
                     return status_column_B, status_column_C
 
         self._close_windows_util_reach_first_gscc()
