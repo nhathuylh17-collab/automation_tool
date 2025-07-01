@@ -134,8 +134,7 @@ class Interim(GCSSTask):
                 logger.info(f'Cannot handle shipment {shipment}. \n {e} \nMoving to next shipment')
                 current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
 
-                if len(get_matching_processes('GCSS')) > 0:
-                    self._pre_actions()
+                self._post_actions()
 
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,

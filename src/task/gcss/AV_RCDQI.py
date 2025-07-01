@@ -1,4 +1,3 @@
-import time
 from datetime import datetime
 from logging import Logger
 from typing import Callable
@@ -78,7 +77,6 @@ class AV_RCDQI(GCSSTask):
             logger.info("Start process shipment " + shipment)
 
             try:
-                #     try to interface and open shipment
                 current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
 
                 pyautogui.hotkey('ctrl', 'o')
@@ -110,7 +108,7 @@ class AV_RCDQI(GCSSTask):
 
                 print(
                     'END_FLOW current gcss process count {}'.format(len(get_matching_processes('GCSS'))))
-                time.sleep(3)
+                self.sleep()
 
             except SkipTPDOC:
                 logger.error(f'Face an TP doc exception {shipment}')
@@ -134,12 +132,11 @@ class AV_RCDQI(GCSSTask):
             except BaseException as e:
 
                 logger.info(f'Cannot handle shipment {shipment}. \n {e} \nMoving to next shipment')
+
                 current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
 
-                if len(get_matching_processes('GCSS')) > 0:
-                    self._pre_actions()
-                else:
-                    self._close_windows_util_reach_first_gscc()
+                self._post_actions()
+
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
                                                     'Error - Skip')
@@ -151,9 +148,9 @@ class AV_RCDQI(GCSSTask):
                                                     4,
                                                     current_timestamp)
 
-                self.excel_provider.save(workbook)
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
+                self.excel_provider.save(workbook)
                 continue
 
         try:
@@ -216,6 +213,7 @@ class AV_RCDQI(GCSSTask):
                 if child.class_name() == "Edit" and child.control_id() == 1001:
                     child.type_keys("Documentation")
                     self.sleep()
+
         runner = 0
         capture_tasks = False
 
@@ -321,3 +319,54 @@ class AV_RCDQI(GCSSTask):
 
         self._close_windows_util_reach_first_gscc()
         return status_column_B, status_column_C
+
+    # def get_status_at_row_rcdqi(self, shipment):
+    #     logger: Logger = get_current_logger()
+    #     runner = 0
+    #     capture_tasks = False
+    #
+    #     self.sleep()
+    #     processing_cells: list[_listview_item] = []
+    #     self.sleep()
+    #
+    #     list_of_activity_plan: list[_listview_item] = []
+    #     list_of_activity_plan_close: list[_listview_item] = []
+    #     self.sleep()
+    #     listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
+    #
+    #     status_column_B = "Done"
+    #     status_column_C = "Successfully closed"
+    #
+    #     for item in listview_activity.items():
+    #         processing_cells[runner] = item
+    #
+    #         if runner != 5:
+    #             runner = runner + 1
+    #             continue
+    #
+    #         runner = 0
+    #
+    #         if processing_cells[0].text().startswith('Resolve Customs Data Quality Issues'):
+    #             capture_tasks = True
+    # 
+    #         if capture_tasks is False:
+    #             status_column_B = 'Skip'
+    #             status_column_C = 'Cannot found RCDQI'
+    #             return status_column_B, status_column_C
+    #
+    #         checking_row_title: str = processing_cells[0].text()
+    #         checking_row_status: str = processing_cells[4].text()
+    #         person: str = processing_cells[2].text()
+    #
+    #         if checking_row_title.startswith('Resolve Customs Data Quality Issues') and (
+    #                 checking_row_status == 'Open' or checking_row_status == ''):
+    #             logger.info('Data Quality is Open now')
+    #             list_of_activity_plan.append(processing_cells[0])
+    #
+    #         if checking_row_title.startswith('Resolve Customs Data Quality Issues') and checking_row_status == 'Closed':
+    #             list_of_activity_plan_close.append(processing_cells[0])
+    #             logger.info('Data Quality is closed before by {}'.format(person))
+    #             status_column_B = 'Closed before'
+    #             status_column_C = f"By {person}"
+    #
+    #         return list_of_activity_plan, list_of_activity_plan_close
