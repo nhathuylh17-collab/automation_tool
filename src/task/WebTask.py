@@ -3,6 +3,7 @@ import os
 import time
 from abc import ABC
 from logging import Logger
+from pathlib import Path
 from typing import Callable
 
 from selenium import webdriver
@@ -28,7 +29,8 @@ class WebTask(AutomatedTask, ABC):
 
         logger: Logger = get_current_logger()
 
-        self._download_folder = self._settings.get('download.folder')
+        # self._download_folder = self._settings.get('download.folder')
+        self._download_folder = str(Path(self._settings.get('download.folder')))
 
         if self._download_folder is not None:
             if os.path.isfile(self._download_folder):
@@ -58,7 +60,7 @@ class WebTask(AutomatedTask, ABC):
             options.add_argument("--window-size=%s" % "1920,1080")
             options.add_argument("--use-fake-ui-for-media-stream")
 
-
+        #
         else:
             options.add_argument("--start-maximized")
 
@@ -67,33 +69,40 @@ class WebTask(AutomatedTask, ABC):
         options.add_argument('--disable-notifications')
         options.add_argument('--disable-features=SafeBrowsing')
         options.add_argument('--disable-popup-blocking')
-        options.add_argument(
-            "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
         options.add_argument('--disable-blink-features=AutomationControlled')
         options.add_experimental_option('excludeSwitches', ['enable-automation'])
-        options.add_argument('--no-proxy-server')  # Bypass proxy if not needed
-        options.add_argument('--disable-web-security')  # Relax security for testing (use cautiously)
+        options.add_argument('--no-proxy-server')
+        options.add_argument('--disable-web-security')
         options.add_argument('--ignore-certificate-errors')
         options.add_argument('--ignore-ssl-errors')
 
         download_path: str = self._download_folder
-        prefs: dict = {
-            "profile.default_content_settings.popups": 0,
-            "download.default_directory": r'{}'.format(download_path),
-            "download.prompt_for_download": False,
-            "download.directory_upgrade": True,
-            "excludeSwitches": ['enable-logging'],
-        }
-        if not self.use_gui:
-            prefs['plugins.always_open_pdf_externally'] = True
+
+        prefs: dict = {"download.default_directory": download_path, "download.prompt_for_download": False,
+                       "download.directory_upgrade": True, "plugins.plugins_disabled": ["Chrome PDF Viewer"],
+                       "plugins.always_open_pdf_externally": True,
+                       "profile.default_content_settings.popups": 0, }
+
+        options.add_argument("--no-sandbox")  # Recommended for stability
+        options.add_argument("--disable-dev-shm-usage")  # Avoid shared memory issues
+
+        options.add_argument("--enable-logging")  # Enable Chrome logging
+        options.add_argument("--log-level=0")
 
         options.add_experimental_option("prefs", prefs)
 
         if not os.path.exists(driver_asb_path):
             driver_downloader.download_and_place_suitable_version_driver()
 
-        service: webdriver.ChromeService = webdriver.ChromeService(executable_path=r'{}'.format(driver_asb_path))
+        service: webdriver.ChromeService = webdriver.ChromeService(executable_path=r'{}'.format(driver_asb_path),
+                                                                   log_output='chromedriver.log')
         driver: webdriver.Chrome = webdriver.Chrome(service=service, options=options)
+        driver.execute_cdp_cmd("Page.setDownloadBehavior",
+                               {
+                                   "behavior": "allow",
+                                   "downloadPath": r'{}'.format(download_path)
+                               }
+                               )
         return driver
 
     def _wait_download_file_complete(self, file_path: str) -> None:
