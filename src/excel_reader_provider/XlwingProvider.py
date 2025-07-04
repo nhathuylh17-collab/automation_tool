@@ -61,10 +61,14 @@ class XlwingProvider(ExcelReaderProvider):
             return self.get_workbook(path=current_path)
 
     def close(self, workbook):
+        logger: Logger = get_current_logger()
         path_to_workbook: str = workbook.fullname
         workbook.close()
         if self.name_to_workbook.get(path_to_workbook) is not None:
             del self.name_to_workbook[path_to_workbook]
+        logger.info(f'Closed Excel')
 
     def quit_session(self):
+        logger: Logger = get_current_logger()
         self._app.quit()
+        logger.info(f'Quit process Excel')

@@ -50,7 +50,12 @@ class UpdateThread(QThread):
                                        stdout=subprocess.PIPE,
                                        stderr=subprocess.PIPE,
                                        text=True)
+            kill_processes('python')
+            kill_processes('automation_tool')
+            kill_processes('Maersk GSC VN Automation Toolkit')
+
             stdout, stderr = process.communicate()  # Wait for installer to complete
+
             if process.returncode == 0:
                 self.log_signal.emit('Update installation completed successfully.')
                 self.status_signal.emit('Update installed. Please restart the application.')
@@ -60,9 +65,6 @@ class UpdateThread(QThread):
 
             # Optionally terminate the application after installation
             self.log_signal.emit('Terminating application for update...')
-
-            kill_processes('automation_tool')
-            kill_processes('Maersk GSC VN Automation Toolkit')
 
         except Exception as e:
             self.log_signal.emit(f'Error during update: {str(e)}')
