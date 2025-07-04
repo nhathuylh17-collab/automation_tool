@@ -1,4 +1,3 @@
-import time
 from datetime import datetime
 from logging import Logger
 from typing import Callable
@@ -72,13 +71,13 @@ class Interim(GCSSTask):
             print('START_FLOW current gcss process count {}'.format(len(get_matching_processes('GCSS'))))
             if len(get_matching_processes('GCSS')) == 0:
                 self._pre_actions()
+                self.sleep()
 
             self._wait_for_window('Pending Tray')
 
             logger.info("Start process shipment " + shipment)
 
             try:
-                #     try to interface and open shipment
                 current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
 
                 pyautogui.hotkey('ctrl', 'o')
@@ -102,6 +101,7 @@ class Interim(GCSSTask):
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     4,
                                                     current_timestamp)
+
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
                 workbook = self.excel_provider.save(workbook)
@@ -109,21 +109,22 @@ class Interim(GCSSTask):
 
                 print(
                     'END_FLOW current gcss process count {}'.format(len(get_matching_processes('GCSS'))))
-                time.sleep(3)
+                self.sleep()
 
             except SkipTPDOC:
                 logger.error(f'Face an TP doc exception {shipment}')
                 current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
-                # try to save excel and skip shipment
+
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     2,
-                                                    'Skip')
+                                                    'Skip TPDoc')
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     3,
                                                     'Have TPDoc')
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     4,
                                                     current_timestamp)
+
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
                 self.excel_provider.save(workbook)
@@ -132,6 +133,7 @@ class Interim(GCSSTask):
             except BaseException as e:
 
                 logger.info(f'Cannot handle shipment {shipment}. \n {e} \nMoving to next shipment')
+
                 current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
 
                 self._post_actions()
@@ -146,9 +148,10 @@ class Interim(GCSSTask):
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     4,
                                                     current_timestamp)
-                self.excel_provider.save(workbook)
+
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
+                self.excel_provider.save(workbook)
                 continue
 
         try:
@@ -209,22 +212,67 @@ class Interim(GCSSTask):
                 if child.class_name() == "Edit" and child.control_id() == 1001:
                     child.type_keys("Import")
                     self.sleep()
+
+        (status_column_B, status_column_C,
+         list_of_interim_transport, list_of_interim_transport_closed) = self.get_status_at_row_interim(shipment)
+
+        # cover case TPDOC - more than 1 row Seal Mismatch is closed before
+        if len(list_of_interim_transport) > 1 or len(list_of_interim_transport_closed) > 1:
+            logger.debug('{} has TP Doc'.format(shipment))
+            self._close_windows_util_reach_first_gscc()
+            raise SkipTPDOC
+
+        # cover case TPDOC - 1 is opened and 1 is closed - total 2 row
+        if len(list_of_interim_transport) == 1 and len(list_of_interim_transport_closed) == 1:
+            logger.debug('{} has TP Doc'.format(shipment))
+            self._close_windows_util_reach_first_gscc()
+            raise SkipTPDOC
+
+        # Return "Closed by [user]" if already closed
+        if list_of_interim_transport_closed:
+            self._close_windows_util_reach_first_gscc()
+            return 'Closed before', status_column_C
+
+        # normal shipment
+        for plan_seal in list_of_interim_transport:
+            plan_seal.select()
+            pyautogui.hotkey('alt', 'L')
+            self.sleep()
+
+        # recheck after trying to close shipment
+        status_column_B, status_column_C, list_of_interim_transport, list_of_interim_transport_closed = self.get_status_at_row_interim(
+            shipment)
+
+        if list_of_interim_transport:
+            logger.info('{} is still open'.format(shipment))
+            return 'Cannot close shipment', 'Shipment remains open'
+        if list_of_interim_transport_closed:
+            logger.info('{} is now closed'.format(shipment))
+            return 'Done', 'Successfully closed'
+
+        self._close_windows_util_reach_first_gscc()
+        return status_column_B, status_column_C
+
+    def get_status_at_row_interim(self, shipment):
+        logger: Logger = get_current_logger()
         runner = 0
         capture_tasks = False
 
         self.sleep()
-        array = [None for _ in range(6)]
+        processing_cells: list[_listview_item] = [None] * 6
         self.sleep()
 
         list_of_interim_transport: list[_listview_item] = []
         list_of_interim_transport_closed: list[_listview_item] = []
+
+        status_column_B = 'Skip'
+        status_column_C = 'Cannot found Interim'
+
+        self.sleep()
         listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
 
-        status_column_B = "Done"
-        status_column_C = "Successfully closed"
-
         for item in listview_activity.items():
-            array[runner] = item
+            processing_cells[runner] = item
 
             if runner != 5:
                 runner = runner + 1
@@ -232,74 +280,32 @@ class Interim(GCSSTask):
 
             runner = 0
 
-            if array[0].text().startswith('Arrange Interim Transport'):
+            if processing_cells[0].text().startswith('Arrange Interim Transport'):
                 capture_tasks = True
+
             if capture_tasks is True:
 
-                if array[0].text().startswith('Arrange Interim Transport') and (
-                        array[4].text() == 'Open' or array[4].text() == ''):
-                    list_of_interim_transport.append(array[0])
+                checking_row_title = processing_cells[0].text()
+                checking_row_status = processing_cells[4].text()
+                person = processing_cells[2].text()
 
-                if array[0].text().startswith('Arrange Interim Transport') and array[4].text() == 'Closed':
-                    list_of_interim_transport_closed.append(array[0])
-                    logger.info('Arrange Interim Transport is closed before by {}'.format(array[2].text()))
-                    status_column_B = 'Closed before'
-                    status_column_C = f"By {array[2].text()}"
+                if checking_row_title.startswith('Arrange Interim Transport') and (
+                        checking_row_status == 'Open' or checking_row_status == ''):
+                    logger.info('Interim is Open now')
+                    list_of_interim_transport.append(processing_cells[0])
 
-        # cover case TPDOC - more than 1 row Seal Mismatch is closed before
-        if len(list_of_interim_transport) > 1 or len(list_of_interim_transport_closed) > 1:
-            self._close_windows_util_reach_first_gscc()
-            raise SkipTPDOC()
+                if checking_row_title.startswith(
+                        'Arrange Interim Transport') and checking_row_status == 'Closed':
+                    list_of_interim_transport_closed.append(processing_cells[0])
+                    logger.info('Interim is closed before by {}'.format(person))
+                    status_column_B = 'Closed'
+                    status_column_C = f"By {person}"
 
-        # cover case TPDOC - 1 is opened and 1 is closed - total 2 row
-        if len(list_of_interim_transport) == 1 and len(list_of_interim_transport_closed) == 1:
-            self._close_windows_util_reach_first_gscc()
-            raise SkipTPDOC()
+            processing_cells = [None] * 6
 
-        # Return "Closed by [user]" if already closed
-        if list_of_interim_transport_closed:
-            self._close_windows_util_reach_first_gscc()
-            return status_column_B, status_column_C
+        if not capture_tasks:
+            logger.info('No Interim tasks found for shipment {}'.format(shipment))
+            status_column_B = 'Skip'
+            status_column_C = 'Cannot found Interim row'
 
-        # normal shipment
-        for plan_seal in list_of_interim_transport:
-
-            plan_seal.select()
-            pyautogui.hotkey('alt', 'L')
-            self.sleep()
-
-            # recheck after trying to close shipment
-            runner = 0
-            array = [None for _ in range(6)]
-            capture_tasks = False
-
-            listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
-
-            for item in listview_activity.items():
-                array[runner] = item
-
-                if runner != 5:
-                    runner = runner + 1
-                    continue
-
-                runner = 0
-
-                if array[0].text().startswith('Arrange Interim Transport'):
-                    capture_tasks = True
-                if capture_tasks is True:
-                    if array[0].text().startswith('Arrange Interim Transport') and (
-                            array[4].text() == 'Open' or array[4].text() == ''):
-                        status_column_B = 'Cannot close shipment'
-                        status_column_C = 'Shipment remains open'
-                        logger.info('{} is still {}'.format(array[0].text(), array[4].text()))
-                    return status_column_B, status_column_C
-
-            while True:
-                list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
-                pyautogui.hotkey('ctrl', 't')
-                if list_views.__len__() == 1:
-                    break
-                self.sleep()
-
-        self._close_windows_util_reach_first_gscc()
-        return status_column_B, status_column_C
+        return status_column_B, status_column_C, list_of_interim_transport, list_of_interim_transport_closed

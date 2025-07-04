@@ -71,6 +71,7 @@ class AV_RCDQI(GCSSTask):
             print('START_FLOW current gcss process count {}'.format(len(get_matching_processes('GCSS'))))
             if len(get_matching_processes('GCSS')) == 0:
                 self._pre_actions()
+                self.sleep()
 
             self._wait_for_window('Pending Tray')
 
@@ -147,7 +148,6 @@ class AV_RCDQI(GCSSTask):
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     4,
                                                     current_timestamp)
-
                 self.current_status_excel_row_index += 1
                 self.current_element_count += 1
                 self.excel_provider.save(workbook)
@@ -214,45 +214,8 @@ class AV_RCDQI(GCSSTask):
                     child.type_keys("Documentation")
                     self.sleep()
 
-        runner = 0
-        capture_tasks = False
-
-        self.sleep()
-        array = [None for _ in range(6)]
-        self.sleep()
-
-        list_of_activity_plan: list[_listview_item] = []
-        list_of_activity_plan_close: list[_listview_item] = []
-        self.sleep()
-        listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
-
-        status_column_B = "Done"
-        status_column_C = "Successfully closed"
-
-        for item in listview_activity.items():
-            array[runner] = item
-
-            if runner != 5:
-                runner = runner + 1
-                continue
-
-            runner = 0
-
-            if array[0].text().startswith('Resolve Customs Data Quality Issues'):
-                capture_tasks = True
-
-            if capture_tasks is True:
-
-                if array[0].text().startswith('Resolve Customs Data Quality Issues') and (
-                        array[4].text() == 'Open' or array[4].text() == ''):
-                    logger.info('Data Quality is Open now')
-                    list_of_activity_plan.append(array[0])
-
-                if array[0].text().startswith('Resolve Customs Data Quality Issues') and array[4].text() == 'Closed':
-                    list_of_activity_plan_close.append(array[0])
-                    logger.info('Data Quality is closed before by {}'.format(array[2].text()))
-                    status_column_B = 'Closed before'
-                    status_column_C = f"By {array[2].text()}"
+        (status_column_B, status_column_C,
+         list_of_activity_plan, list_of_activity_plan_close) = self.get_status_at_row_rcdqi(shipment)
 
         # cover IF we have TPDOC - more than 1 row has Resolve Customs Data Quality Issues
         if len(list_of_activity_plan) > 1 or len(list_of_activity_plan_close) > 1:
@@ -269,7 +232,7 @@ class AV_RCDQI(GCSSTask):
         # Return "Closed by [user]" if already closed
         if list_of_activity_plan_close:
             self._close_windows_util_reach_first_gscc()
-            return status_column_B, status_column_C
+            return 'Closed before', status_column_C
 
         # normal shipment
         for activity_plan in list_of_activity_plan:
@@ -291,82 +254,71 @@ class AV_RCDQI(GCSSTask):
             activity_plan.deselect()
             self.sleep()
 
-            # recheck after trying to close shipment
-            runner = 0
-            array = [None for _ in range(6)]
-            capture_tasks = False
-
-            listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
-
-            for item in listview_activity.items():
-                array[runner] = item
-
-                if runner != 5:
-                    runner = runner + 1
-                    continue
-
-                runner = 0
-
-                if array[0].text().startswith('Resolve Customs Data Quality Issues'):
-                    capture_tasks = True
-                if capture_tasks is True:
-                    if array[0].text().startswith('Resolve Customs Data Quality Issues') and (
-                            array[4].text() == 'Open' or array[4].text() == ''):
-                        status_column_B = 'Cannot close shipment'
-                        status_column_C = 'Shipment remains open'
-                        logger.info('{} is still {}'.format(array[0].text(), array[4].text()))
-                    return status_column_B, status_column_C
+        # recheck after trying to close shipment
+        status_column_B, status_column_C, list_of_activity_plan, list_of_activity_plan_close = self.get_status_at_row_rcdqi(
+            shipment)
+        if list_of_activity_plan:
+            logger.info('{} is still open'.format(shipment))
+            return 'Cannot close shipment', 'Shipment remains open'
+        if list_of_activity_plan_close:
+            logger.info('{} is now closed'.format(shipment))
+            return 'Done', 'Successfully closed'
 
         self._close_windows_util_reach_first_gscc()
         return status_column_B, status_column_C
 
-    # def get_status_at_row_rcdqi(self, shipment):
-    #     logger: Logger = get_current_logger()
-    #     runner = 0
-    #     capture_tasks = False
-    #
-    #     self.sleep()
-    #     processing_cells: list[_listview_item] = []
-    #     self.sleep()
-    #
-    #     list_of_activity_plan: list[_listview_item] = []
-    #     list_of_activity_plan_close: list[_listview_item] = []
-    #     self.sleep()
-    #     listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
-    #
-    #     status_column_B = "Done"
-    #     status_column_C = "Successfully closed"
-    #
-    #     for item in listview_activity.items():
-    #         processing_cells[runner] = item
-    #
-    #         if runner != 5:
-    #             runner = runner + 1
-    #             continue
-    #
-    #         runner = 0
-    #
-    #         if processing_cells[0].text().startswith('Resolve Customs Data Quality Issues'):
-    #             capture_tasks = True
-    # 
-    #         if capture_tasks is False:
-    #             status_column_B = 'Skip'
-    #             status_column_C = 'Cannot found RCDQI'
-    #             return status_column_B, status_column_C
-    #
-    #         checking_row_title: str = processing_cells[0].text()
-    #         checking_row_status: str = processing_cells[4].text()
-    #         person: str = processing_cells[2].text()
-    #
-    #         if checking_row_title.startswith('Resolve Customs Data Quality Issues') and (
-    #                 checking_row_status == 'Open' or checking_row_status == ''):
-    #             logger.info('Data Quality is Open now')
-    #             list_of_activity_plan.append(processing_cells[0])
-    #
-    #         if checking_row_title.startswith('Resolve Customs Data Quality Issues') and checking_row_status == 'Closed':
-    #             list_of_activity_plan_close.append(processing_cells[0])
-    #             logger.info('Data Quality is closed before by {}'.format(person))
-    #             status_column_B = 'Closed before'
-    #             status_column_C = f"By {person}"
-    #
-    #         return list_of_activity_plan, list_of_activity_plan_close
+    def get_status_at_row_rcdqi(self, shipment):
+        logger: Logger = get_current_logger()
+        runner = 0
+        capture_tasks = False
+
+        self.sleep()
+        processing_cells: list[_listview_item] = [None] * 6
+        self.sleep()
+
+        list_of_activity_plan: list[_listview_item] = []
+        list_of_activity_plan_close: list[_listview_item] = []
+        status_column_B = 'Skip'
+        status_column_C = 'Cannot found RCDQI'
+
+        self.sleep()
+        listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
+
+        for item in listview_activity.items():
+            processing_cells[runner] = item
+
+            if runner != 5:
+                runner = runner + 1
+                continue
+
+            runner = 0
+
+            if processing_cells[0].text().startswith('Resolve Customs Data Quality Issues'):
+                capture_tasks = True
+
+            if capture_tasks is True:
+
+                checking_row_title = processing_cells[0].text()
+                checking_row_status = processing_cells[4].text()
+                person = processing_cells[2].text()
+
+                if checking_row_title.startswith('Resolve Customs Data Quality Issues') and (
+                        checking_row_status == 'Open' or checking_row_status == ''):
+                    logger.info('Data Quality is Open now')
+                    list_of_activity_plan.append(processing_cells[0])
+
+                if checking_row_title.startswith(
+                        'Resolve Customs Data Quality Issues') and checking_row_status == 'Closed':
+                    list_of_activity_plan_close.append(processing_cells[0])
+                    logger.info('Data Quality is closed before by {}'.format(person))
+                    status_column_B = 'Closed'
+                    status_column_C = f"By {person}"
+
+            processing_cells = [None] * 6
+
+        if not capture_tasks:
+            logger.info('No RCDQI tasks found for shipment {}'.format(shipment))
+            status_column_B = 'Skip'
+            status_column_C = 'Cannot found RCDQI'
+
+        return status_column_B, status_column_C, list_of_activity_plan, list_of_activity_plan_close
