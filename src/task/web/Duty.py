@@ -5,6 +5,7 @@ import time
 from datetime import datetime
 from enum import Enum
 from logging import Logger
+from pathlib import Path
 from typing import Dict, Tuple, Callable
 
 import requests
@@ -180,8 +181,8 @@ class Duty(WebTask):
     def _rename_file_after_download(self, fcr_code: str, fcr_index: int):
         logger: Logger = get_current_logger()
 
-        download_folder: str = self._settings['download.folder']
-        rename_folder: str = self._settings['rename.folder']
+        download_folder: Path = Path(self._settings['download.folder'])
+        rename_folder: Path = Path(self._settings['rename.folder'])
 
         attempt_counter: int = 0
         max_attempt: int = 2 * 60
@@ -206,11 +207,11 @@ class Duty(WebTask):
         all_files_in_download_folder: list[str] = os.listdir(download_folder)
         download_filename: str = None if len(all_files_in_download_folder) == 0 else all_files_in_download_folder[0]
 
-        full_file_path: str = os.path.join(download_folder, download_filename)
-        rename_filename_path = os.path.join(rename_folder, '{}_Duty.pdf'.format(fcr_code))
+        full_file_path: Path = download_folder / download_filename
+        rename_filename_path: Path = rename_folder / f'{fcr_code}_Duty.pdf'
 
-        if os.path.exists(rename_filename_path):
-            os.remove(rename_filename_path)
+        if rename_filename_path.exists():
+            rename_filename_path.unlink()
 
         max_attempt: int = 2 * 60
         while True:
@@ -243,7 +244,7 @@ class Duty(WebTask):
         ws = wb[self._settings['excel.sheet']]
 
         logger.info('Inputting Excel')
-        rename_folder: str = self._settings['rename.folder']
+        rename_folder: str = os.path.normpath(self._settings['rename.folder'])
 
         new_status_done: str = 'Done'
         new_status_miss: str = 'Missing'
@@ -257,7 +258,7 @@ class Duty(WebTask):
             else:
                 ws[f'B{index}'] = new_status_miss
 
-            new_file_path = os.path.join(rename_folder, 'output.xlsx')
+            new_file_path = os.path.normpath(os.path.join(rename_folder, 'output.xlsx'))
 
             if os.path.exists(new_file_path):
                 os.remove(new_file_path)
