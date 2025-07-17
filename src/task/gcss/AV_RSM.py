@@ -166,7 +166,7 @@ class AV_RSM(GCSSTask):
         self.sleep()
         window_normal_shipment: str = self._wait_for_window(shipment)
         self._window_title_stack.append(window_normal_shipment)
-        gw.getWindowsWithTitle(window_normal_shipment)[0].activate()  # recheck chỗ này
+        gw.getWindowsWithTitle(window_normal_shipment)[0].activate()
 
         self._app: Application = Application().connect(title=self._window_title_stack.peek())
         self._window: WindowSpecification = self._app.window(title=self._window_title_stack.peek())

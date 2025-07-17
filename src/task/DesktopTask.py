@@ -64,7 +64,7 @@ class DesktopTask(AutomatedTask, ABC):
         counter: int = 0
         while not self._is_current_window_having_title(window_title):
 
-            if counter > 10:
+            if counter > 20:
                 raise Exception(
                     f"Time is over for waiting {window_title} appear by the hotkey combination {args}")
 
