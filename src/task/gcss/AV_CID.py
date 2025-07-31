@@ -278,6 +278,8 @@ class AV_CID(GCSSTask):
 
         # Get Cnee Name and First Notify Party in 2nd window
         consignee_name: str = self.get_listview_text('Consignee')
+
+        self.select_consignee()
         cnee_edit_element: EditWrapper = self._window.children(class_name="Edit")[14]
         cnee_scv_no: str = cnee_edit_element.texts()[0]
 
@@ -307,30 +309,31 @@ class AV_CID(GCSSTask):
 
         self._wait_for_window(shipment)
         self.into_maintain_pricing_tab()
-        self._wait_for_window('Maintain Pricing and Invoicing')
+
+        GCSS_window_maintain: str = self._wait_for_window('Maintain Pricing and Invoicing')
+        self._window_title_stack.append(GCSS_window_maintain)
+        gw.getWindowsWithTitle(GCSS_window_maintain)[0].activate()
+
+        self._app: Application = Application().connect(title=self._window_title_stack.peek())
+        self._window: WindowSpecification = self._app.window(title=self._window_title_stack.peek())
 
         # 'Open and interface with 3rd window - Maintain Pricing and Invoicing Window'
-        listview_activity = self._window.children(class_name="SysListView32")[0]
-        for idx, list_view in enumerate(listview_activity):
-
-            list_view: ListViewWrapper
-            for child in list_view.children():
-                print(
-                    f"Class Name: {child.class_name()}, Text: {child.window_text()}, Control ID: {child.control_id()}")
-
-        logger.info('printing')
-        # sai cho nay
-        Tab_controls_maintain_pricing_and_inv = self._window.children(class_name="SysTabControl32")
-        Tab_controls_maintain_pricing_and_inv.select()
-        logger.info('Selected tab Pricing 2')
-
         self.sleep()
         self.count_and_choose_all_item_payment_term_collect()
         self.sleep()
 
+        # click button Modify in tab 2nd - Invoice tab
+        buttons: list[ButtonWrapper] = self._window.children(class_name="Button")
+        button_modify: ButtonWrapper = buttons[10]
+        button_modify.click()
+
         # Into Maintain Invoice Details
-        self._hotkey_then_open_new_window('Maintain Invoice Details', 'alt', 'i')
-        self.sleep()
+        GCSS_window_maintain: str = self._wait_for_window('Maintain Invoice Details')
+        self._window_title_stack.append(GCSS_window_maintain)
+        gw.getWindowsWithTitle(GCSS_window_maintain)[0].activate()
+
+        self._app: Application = Application().connect(title=self._window_title_stack.peek())
+        self._window: WindowSpecification = self._app.window(title=self._window_title_stack.peek())
 
         ComboBox_maintain_payment: ComboBoxWrapper = self._window.children(class_name="ComboBox")[0]
         ComboBox_maintain_payment.select('Collect')
@@ -355,13 +358,12 @@ class AV_CID(GCSSTask):
 
             if cnee_scv_no in invoice:
                 ComboBox_maintain_invoice_party.select(runner)
-                logger.info('selecter INV')
+                logger.info('Selecting Invoice and Credit Party')
 
                 dialog_title_qs = 'Question'
                 dialog_window = self._app.window(title=dialog_title_qs)
                 dialog_window.wait(timeout=10, wait_for='visible')
                 dialog_window.type_keys('{ENTER}')
-                logger.info('Press ENTER 2')
 
                 break
 
@@ -370,12 +372,12 @@ class AV_CID(GCSSTask):
         self.sleep()
         ComboBox_maintain_collect_business: ComboBoxWrapper = self._window.children(class_name="ComboBox")[3]
         ComboBox_maintain_collect_business.select('Maersk Bangkok (Bangkok)')
-        logger.info('choose Msk bangkok')
+        logger.info('Choose Maersk bangkok')
         self.sleep()
 
         ComboBox_maintain_printable_freight_line: ComboBoxWrapper = self._window.children(class_name="ComboBox")[4]
         ComboBox_maintain_printable_freight_line.select('Yes')
-        logger.info('click yes')
+        logger.info('Choose Yes')
         self.sleep()
 
         # Click OK button in 4th window and window will be auto closed
@@ -412,13 +414,16 @@ class AV_CID(GCSSTask):
             self.sleep()
 
         self._close_windows_util_reach_first_gscc()
+        return "Complete", "Done"
 
     def count_and_choose_all_item_payment_term_collect(self) -> int:
         """"
             return the number of item payment term collect have been clicked
         """
         logger: Logger = get_current_logger()
+
         list_views: ListViewWrapper = self._window.children(class_name="SysListView32")[1]
+
         count_item: int = 0
 
         pyautogui.keyDown('ctrl')
@@ -433,7 +438,6 @@ class AV_CID(GCSSTask):
             raise SkipToNextShipment_NotfoundtermCollect
 
         logger.info('Total have {} row Collect'.format(count_item))
-        self._close_windows_util_reach_first_gscc()
         return count_item
 
     def into_freight_and_pricing_tab(self):
@@ -639,6 +643,27 @@ class AV_CID(GCSSTask):
                 self.print_all_controls(child, depth + 1)
         except Exception as e:
             print("  " * depth + f"Error accessing control: {e}")
+
+    def select_consignee(self):
+        listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
+
+        runner = 0
+        processing_cells: list[_listview_item] = [None] * 2
+        result_text = ''
+
+        for item in listview_activity.items():
+            processing_cells[runner] = item
+
+            if runner != 1:
+                runner = runner + 1
+                continue
+
+            runner = 0
+            # Check both conditions if search_text_1 is provided
+            if processing_cells[1].text().startswith('Consignee'):
+                processing_cells[0].select()
+                return
+            return
 
 
 class SkipToNextShipment_novessel(Exception):
