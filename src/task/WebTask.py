@@ -76,6 +76,13 @@ class WebTask(AutomatedTask, ABC):
         options.add_argument('--ignore-certificate-errors')
         options.add_argument('--ignore-ssl-errors')
 
+        # user_profile = os.path.expanduser("~")
+        #
+        # chrome_user_data_dir = os.path.join(user_profile, r"AppData\Local\Google\Chrome\Userdata")
+        # options.add_argument(f"user-data-dir={chrome_user_data_dir}")
+        #
+        # options.add_argument("--profile.directory.Profile=10")
+
         download_path: str = self._download_folder
 
         prefs: dict = {"download.default_directory": download_path, "download.prompt_for_download": False,
