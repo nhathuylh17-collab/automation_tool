@@ -236,7 +236,7 @@ class WebTask(AutomatedTask, ABC):
                                         element_selector: str,
                                         method: Callable[[AnyDriver], WebElement],
                                         first_time_sleep: int = 1,
-                                        waiting_time: int = 30) -> WebElement:
+                                        waiting_time: int = 10) -> WebElement:
         time.sleep(first_time_sleep * self._timingFactor)
         if self.use_gui:
             WebDriverWait(self._driver, waiting_time * self._timingFactor).until(method)

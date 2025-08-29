@@ -30,7 +30,7 @@ class Download_Blx(WebTask):
         logger.info(
             "---------------------------------------------------------------------------------------------------------")
         logger.info("Start processing")
-        self._driver.get('https://apll.get-traction.com/')
+        self._driver.get('https://apll.get-traction.com/traction#/home')
 
         logger.info('Try to login')
         self.__login()
@@ -44,6 +44,7 @@ class Download_Blx(WebTask):
             logger.error('Input booking id list is empty ! Please check again')
 
         last_bill: str = ''
+
         self.perform_mainloop_on_collection(bills, self.operation_on_each_element)
 
         self._driver.close()
@@ -104,10 +105,9 @@ class Download_Blx(WebTask):
 
     def __navigate_and_download(self, bill: str) -> None:
         logger: Logger = get_current_logger()
-        self._type_when_element_present(by=By.CSS_SELECTOR, value='div.fm.fm-html input[type=text]', content=bill)
+        self._type_when_element_present(by=By.CSS_SELECTOR, value='#local-nav input.gwt-TextBox', content=bill)
         # click find button
-        self._click_when_element_present(by=By.CSS_SELECTOR, value='button.gwt-Button')
-
+        self._click_when_element_present(by=By.CSS_SELECTOR, value='#local-nav button.gwt-Button')
         # click download
         try:
             self._click_when_element_present(by=By.LINK_TEXT, value='{}_REVISED.zip'.format(bill))
@@ -124,10 +124,9 @@ class Download_Blx(WebTask):
                                                   None),
                                             daemon=False)
         extract_zip_task.start()
+        self.sleep()
 
-        # click to back to the overview Booking page
-        self._driver.get('https://apll.get-traction.com/')
-        logger.info("Navigating back to overview Booking page")
+        self._click_when_element_present(by=By.CSS_SELECTOR, value='#hd a')
 
     @staticmethod
     def delete_redundant_opening_pdf_files(download_folder: str) -> None:
