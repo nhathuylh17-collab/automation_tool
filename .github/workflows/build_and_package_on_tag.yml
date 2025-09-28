@@ -1,10 +1,9 @@
 name: Build and Package on Windows
 run-name: ${{ github.actor }} try to build and package the Automation Tool per release
 on:
-  push:
-    tags:
-      - 'v*'
-  workflow_dispatch:
+  pull_request:
+    types:
+      - closed
 
 jobs:
   build:
@@ -18,8 +17,8 @@ jobs:
       - name: Get tag name
         id: tag_name
         run: |
-          $tagName = $env:GITHUB_REF -replace 'refs/tags/', ''
-          Write-Output "::set-output name=tag_version::$tagName"
+          cp release_notes/default_rn.txt "$notes_file"
+          echo "::set-output name=tag_version::$(cat $notes_file)"
 
       - name: Determine Release Notes File
         id: determine_release_notes
