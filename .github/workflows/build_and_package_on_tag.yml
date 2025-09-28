@@ -1,18 +1,14 @@
 name: Build and Package on Windows
-run-name: ${{ github.actor }} try to build and package the Automation Tool per release
+
 on:
-  push:
-    tags:
-      - 'v*'
-  workflow_dispatch:
   pull_request:
     types: [ closed ]
     branches:
       - main
 
 jobs:
-  build:
-    name: Create release
+  build-and-release:
+    name: Create Release on PR Merge
     runs-on: windows-latest
     permissions: write-all
     if: github.event.pull_request.merged == true
@@ -21,41 +17,62 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.ref }}
+          fetch-depth: 0
 
-      - name: Get tag name
+      - name: Read current version and generate new tag
         id: tag_name
         run: |
-          $tagName = $env:GITHUB_REF -replace 'refs/tags/', ''
-          Write-Output "::set-output name=tag_version::$tagName"
+          $currentVersion = Get-Content release_notes/current_release_version.txt -Raw
+          $versionParts = $currentVersion.Split('.')
+          $major = [int]$versionParts[0]
+          $minor = [int]$versionParts[1]
+          $patch = [int]$versionParts[2]
+          
+          if ($patch -eq 9) {
+            $patch = 0
+            if ($minor -eq 9) {
+              $minor = 0
+              $major += 1
+            } else {
+              $minor += 1
+            }
+          } else {
+            $patch += 1
+          }
+          
+          $newVersion = "$major.$minor.$patch"
+          echo "tag_version=v$newVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        shell: powershell
 
       - name: Determine Release Notes File
         id: determine_release_notes
         run: |
-          if [ -z "${{ steps.tag_name.outputs.tag_version }}" ]; then
-            notes_file="release_notes/default_rn.txt"
-          else
-            echo -e "\nCommit Message for ${{ steps.tag_name.outputs.tag_version }} ($(date --iso-8601=seconds)):\n${{ github.event.head_commit.message }}\n" >> release_notes/default_rn.txt
-            notes_file="release_notes/${{ steps.tag_name.outputs.tag_version }}.txt"
-          
-            if [ ! -f "$notes_file" ]; then
-              cp release_notes/default_rn.txt "$notes_file"
-            fi
-          fi
-          echo "::set-output name=notes_file::$notes_file"
-        shell: bash
+          $notesFile = "release_notes/${{ steps.tag_name.outputs.tag_version }}.txt"
+          mkdir -p release_notes
+          echo -e "\nCommit Message for ${{ steps.tag_name.outputs.tag_version }} ($(date --iso-8601=seconds)):\n${{ github.event.pull_request.title }}\n${{ github.event.pull_request.body }}" > release_notes/default_rn.txt
+          if (-Not (Test-Path $notesFile)) {
+            Copy-Item release_notes/default_rn.txt $notesFile
+          }
+          echo "notes_file=$notesFile" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        shell: powershell
 
       - name: Update the file storing latest release version information
         run: |
-          git fetch origin
           git checkout main
           echo "${{ steps.tag_name.outputs.tag_version }}" > release_notes/current_release_version.txt
-          sed -i "1s/#define MyAppVersion \".*\"/#define MyAppVersion \"${{ steps.tag_name.outputs.tag_version }}\"/" automation_tool.iss
+          (Get-Content automation_tool.iss) -replace '#define MyAppVersion \".*\"', '#define MyAppVersion "${{ steps.tag_name.outputs.tag_version }}"' | Set-Content automation_tool.iss
           git config user.name "huy-lehoangnhat-maersk"
           git config user.email "huy.le@lns.maersk.com"
           git add .
-          git commit -m "Update files to set the new release to ${{ steps.tag_name.outputs.tag_version }}"
+          git commit -m "Update files for release ${{ steps.tag_name.outputs.tag_version }}"
           git push origin main
-        shell: bash
+        shell: powershell
+
+      - name: Create tag
+        run: |
+          git tag ${{ steps.tag_name.outputs.tag_version }}
+          git push origin ${{ steps.tag_name.outputs.tag_version }}
+        shell: powershell
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -69,12 +86,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install --upgrade comtypes
+        shell: cmd
 
       - name: Build executable
         run: |
           cmd /c call venv\Scripts\activate
           pyinstaller automation_tool.spec
           cmd /c call venv\Scripts\deactivate
+        shell: cmd
 
       - name: Copy additional folders to dist
         run: |
@@ -95,28 +114,32 @@ jobs:
 
       - name: Install Inno Setup
         run: choco install innosetup -y
+        shell: cmd
 
       - name: Build Installer
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" /DMyVar="Value" "automation_tool.iss"
+        shell: cmd
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: automation_tool_${{ steps.tag_name.outputs.tag_version }}
           path: dist/automation_tool.exe
+          retention-days: 7
 
       - name: Read Release Notes
         id: read_release_notes
         run: |
-          notes_file="${{ steps.determine_release_notes.outputs.notes_file }}"
-          if [ -f "$notes_file" ]; then
-            notes=$(cat "$notes_file")
-          else
-            notes=""
-          fi
-          echo "::set-output name=release_notes::$notes"
-        shell: bash
+          $notesFile = "${{ steps.determine_release_notes.outputs.notes_file }}"
+          if (Test-Path $notesFile) {
+            $notes = Get-Content $notesFile -Raw
+            $notes = $notes -replace '`', '' # Remove backticks for GitHub API compatibility
+            echo "release_notes=$notes" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } else {
+            echo "release_notes=" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+        shell: powershell
 
       - name: Create Release
         id: create_release
@@ -126,7 +149,9 @@ jobs:
         with:
           tag_name: ${{ steps.tag_name.outputs.tag_version }}
           release_name: Release ${{ steps.tag_name.outputs.tag_version }}
-          body_path: ${{ steps.determine_release_notes.outputs.notes_file }}
+          body: ${{ steps.read_release_notes.outputs.release_notes }}
+          draft: false
+          prerelease: false
 
       - name: Upload Release Asset
         id: upload-release-asset
