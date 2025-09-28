@@ -17,21 +17,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.pull_request.base.sha }}  # Use the base SHA of the merged PR (main branch)
+          fetch-depth: 0  # Fetch all history to retrieve tags
 
-      - name: Generate version number
-        id: generate_version
+      - name: Get latest tag
+        id: get_latest_tag
         run: |
-          $commitSha = "${{ github.event.pull_request.merge_commit_sha }}"
-          $version = "v$(date -u +%Y.%m.%d)-${commitSha.Substring(0,7)}"
-          echo "::set-output name=tag_version::$version"
+          $tagName = git describe --tags --abbrev=0
+          if (-not $tagName) {
+            Write-Error "No tags found in the repository"
+            exit 1
+          }
+          echo "::set-output name=tag_version::$tagName"
         shell: bash
 
       - name: Determine Release Notes File
         id: determine_release_notes
         run: |
-          notes_file="release_notes/${{ steps.generate_version.outputs.tag_version }}.txt"
-          echo -e "Release Notes for ${{ steps.generate_version.outputs.tag_version }} ($(date --iso-8601=seconds)):\n${{ github.event.pull_request.title }}\n${{ github.event.pull_request.body }}" > "$notes_file"
+          notes_file="release_notes/${{ steps.get_latest_tag.outputs.tag_version }}.txt"
+          echo -e "Release Notes for ${{ steps.get_latest_tag.outputs.tag_version }} ($(date --iso-8601=seconds)):\n${{ github.event.pull_request.title }}\n${{ github.event.pull_request.body }}" > "$notes_file"
           if [ ! -f "$notes_file" ]; then
             cp release_notes/default_rn.txt "$notes_file"
           fi
@@ -42,12 +46,12 @@ jobs:
         run: |
           git fetch origin
           git checkout main
-          echo "${{ steps.generate_version.outputs.tag_version }}" > release_notes/current_release_version.txt
-          sed -i "1s/#define MyAppVersion \".*\"/#define MyAppVersion \"${{ steps.generate_version.outputs.tag_version }}\"/" automation_tool.iss
+          echo "${{ steps.get_latest_tag.outputs.tag_version }}" > release_notes/current_release_version.txt
+          sed -i "1s/#define MyAppVersion \".*\"/#define MyAppVersion \"${{ steps.get_latest_tag.outputs.tag_version }}\"/" automation_tool.iss
           git config user.name "huy-lehoangnhat-maersk"
           git config user.email "huy.le@lns.maersk.com"
           git add .
-          git commit -m "Update files to set the new release to ${{ steps.generate_version.outputs.tag_version }}"
+          git commit -m "Update files to set the release to ${{ steps.get_latest_tag.outputs.tag_version }}"
           git push origin main
         shell: bash
 
@@ -97,7 +101,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: automation_tool_${{ steps.generate_version.outputs.tag_version }}
+          name: automation_tool_${{ steps.get_latest_tag.outputs.tag_version }}
           path: dist/automation_tool.exe
 
       - name: Read Release Notes
@@ -118,8 +122,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.generate_version.outputs.tag_version }}
-          release_name: Release ${{ steps.generate_version.outputs.tag_version }}
+          tag_name: ${{ steps.get_latest_tag.outputs.tag_version }}
+          release_name: Release ${{ steps.get_latest_tag.outputs.tag_version }}
           body: ${{ steps.read_release_notes.outputs.release_notes }}
 
       - name: Upload Release Asset
@@ -130,5 +134,5 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: dist/automation_tool_installer.exe
-          asset_name: automation_tool_installer_${{ steps.generate_version.outputs.tag_version }}.exe
+          asset_name: automation_tool_installer_${{ steps.get_latest_tag.outputs.tag_version }}.exe
           asset_content_type: application/octet-stream
