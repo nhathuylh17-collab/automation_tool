@@ -10,105 +10,44 @@ jobs:
     name: Create release
     runs-on: windows-latest
     permissions: write-all
-      #      - name: Checkout repository
-      #        uses: actions/checkout@v4
-      #
-      #      - name: Get tag name
-      #        id: tag_name
-      #        run: |
-      #          cp release_notes/default_rn.txt "$notes_file"
-      #          echo "::set-output name=tag_version::$(cat $notes_file)"
-      #
-      #      - name: Determine Release Notes File
-      #        id: determine_release_notes
-      #        run: |
-      #          if [ -z "${{ steps.tag_name.outputs.tag_version }}" ]; then
-      #            notes_file="release_notes/default_rn.txt"
-      #          else
-      #            echo -e "\nCommit Message for ${{ steps.tag_name.outputs.tag_version }} ($(date --iso-8601=seconds)):\n${{ github.event.head_commit.message }}\n" >> release_notes/default_rn.txt
-      #            notes_file="release_notes/${{ steps.tag_name.outputs.tag_version }}.txt"
-      #
-      #            if [ ! -f "$notes_file" ]; then
-      #              cp release_notes/default_rn.txt "$notes_file"
-      #            fi
-      #          fi
-      #          echo "::set-output name=notes_file::$notes_file"
-      #        shell: bash
-      #
-      #      - name: Update the file storing latest release version information
-      #        run: |
-      #          git fetch origin
-      #          git checkout main
-      #          echo "${{ steps.tag_name.outputs.tag_version }}" > release_notes/current_release_version.txt
-      #          sed -i "1s/#define MyAppVersion \".*\"/#define MyAppVersion \"${{ steps.tag_name.outputs.tag_version }}\"/" automation_tool.iss
-      #          git config user.name "huy-lehoangnhat-maersk"
-      #          git config user.email "huy.le@lns.maersk.com"
-      #          git add .
-      #          git commit -m "Update files to set the new release to ${{ steps.tag_name.outputs.tag_version }}"
-      #          git push origin main
-    #        shell: bash
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Read and increment version
-        id: version
+      - name: Get tag name
+        id: tag_name
         run: |
-          # Read the current version from current_release_version.txt
-          current_version=$(cat release_notes/current_release_version.txt)
-          
-          # Increment the patch version (e.g., 1.0.0 -> 1.0.1)
-          IFS='.' read -r major minor patch <<< "$current_version"
-          new_patch=$((patch + 1))
-          new_version="$major.$minor.$new_patch"
-          
-          # Output the new version
-          echo "::set-output name=new_version::$new_version"
-          
-          # Update current_release_version.txt with the new version
-          echo "$new_version" > release_notes/current_release_version.txt
-        shell: bash
+          cp release_notes/default_rn.txt "$notes_file"
+          echo "::set-output name=tag_version::$(cat $notes_file)"
 
       - name: Determine Release Notes File
         id: determine_release_notes
         run: |
-          notes_file="release_notes/${{ steps.version.outputs.new_version }}.txt"
-          
-          # Check if release notes file for the new version exists
-          if [ -f "$notes_file" ]; then
-            echo "Using release notes from $notes_file"
+          if [ -z "${{ steps.tag_name.outputs.tag_version }}" ]; then
+            notes_file="release_notes/default_rn.txt"
           else
-            echo "No specific release notes found, using default_rn.txt"
-            cp release_notes/default_rn.txt "$notes_file"
-            # Append commit message to the release notes
-            echo -e "\nCommit Message for ${{ steps.version.outputs.new_version }} ($(date --iso-8601=seconds)):\n${{ github.event.head_commit.message }}\n" >> "$notes_file"
-          fi
+            echo -e "\nCommit Message for ${{ steps.tag_name.outputs.tag_version }} ($(date --iso-8601=seconds)):\n${{ github.event.head_commit.message }}\n" >> release_notes/default_rn.txt
+            notes_file="release_notes/${{ steps.tag_name.outputs.tag_version }}.txt"
           
+            if [ ! -f "$notes_file" ]; then
+              cp release_notes/default_rn.txt "$notes_file"
+            fi
+          fi
           echo "::set-output name=notes_file::$notes_file"
         shell: bash
 
-      - name: Update version and commit changes
+      - name: Update the file storing latest release version information
         run: |
           git fetch origin
           git checkout main
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add release_notes/current_release_version.txt
-          git add release_notes/${{ steps.version.outputs.new_version }}.txt
-          git commit -m "Update version to ${{ steps.version.outputs.new_version }} and add release notes"
+          echo "${{ steps.tag_name.outputs.tag_version }}" > release_notes/current_release_version.txt
+          sed -i "1s/#define MyAppVersion \".*\"/#define MyAppVersion \"${{ steps.tag_name.outputs.tag_version }}\"/" automation_tool.iss
+          git config user.name "huy-lehoangnhat-maersk"
+          git config user.email "huy.le@lns.maersk.com"
+          git add .
+          git commit -m "Update files to set the new release to ${{ steps.tag_name.outputs.tag_version }}"
           git push origin main
         shell: bash
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.version.outputs.new_version }}
-          release_name: Release ${{ steps.version.outputs.new_version }}
-          body_path: ${{ steps.determine_release_notes.outputs.notes_file }}
-
 
       - name: Set up Python
         uses: actions/setup-python@v5
