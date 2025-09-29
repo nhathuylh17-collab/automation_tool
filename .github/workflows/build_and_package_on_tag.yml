@@ -40,15 +40,27 @@ jobs:
       - name: Update the file storing latest release version information
         run: |
           git fetch origin
-          git checkout main
+          git checkout -b update-release-${{ steps.tag_name.outputs.tag_version }}
           echo "${{ steps.tag_name.outputs.tag_version }}" > release_notes/current_release_version.txt
           sed -i "1s/#define MyAppVersion \".*\"/#define MyAppVersion \"${{ steps.tag_name.outputs.tag_version }}\"/" automation_tool.iss
           git config user.name "huy-lehoangnhat-maersk"
           git config user.email "huy.le@lns.maersk.com"
           git add .
           git commit -m "Update files to set the new release to ${{ steps.tag_name.outputs.tag_version }}"
-          git push origin main
+          git push origin update-release-${{ steps.tag_name.outputs.tag_version }}
         shell: bash
+
+      - name: Create Pull Request
+        id: create_pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Update files to set the new release to ${{ steps.tag_name.outputs.tag_version }}"
+          title: "Automated update for release ${{ steps.tag_name.outputs.tag_version }}"
+          body: "Automated PR to update version files for release ${{ steps.tag_name.outputs.tag_version }}. Please review and merge."
+          base: main
+          branch: update-release-${{ steps.tag_name.outputs.tag_version }}
+          assignees: huy-lehoangnhat-maersk
 
       - name: Set up Python
         uses: actions/setup-python@v5
