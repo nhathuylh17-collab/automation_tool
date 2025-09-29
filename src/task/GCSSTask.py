@@ -14,7 +14,7 @@ from src.task.DesktopTask import DesktopTask
 class GCSSTask(DesktopTask):
 
     def mandatory_settings(self) -> list[str]:
-        return ['gcss_profile_name']
+        return ['gcss_profile_name', 'gcss_prod']
 
     def automate(self):
         try:
@@ -57,7 +57,13 @@ class GCSSTask(DesktopTask):
     def _open_the_gcss(self):
         logger: Logger = get_current_logger()
 
-        exe_path = r"C:\Program Files (x86)\GCSS\PROD_B\GCSSExport.exe"
+        prod_version = self._settings['gcss_prod']
+
+        if prod_version == 'A':
+            exe_path = r"C:\Program Files (x86)\GCSS\PROD_A\GCSSExport.exe"
+        if prod_version == 'B':
+            exe_path = r"C:\Program Files (x86)\GCSS\PROD_B\GCSSExport.exe"
+
         argument = r"-wsnaddr=//gcssexport1.gls.dk.eur.crb.apmoller.net:15000"
 
         try:
