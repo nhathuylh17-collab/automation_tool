@@ -17,8 +17,20 @@ jobs:
       - name: Get tag name
         id: tag_name
         run: |
-          $tagVersion = Get-Content -Path release_notes/current_release_version.txt -Raw
+          git pull origin main
+          $tagVersion = git tag --sort=-creatordate | Select-Object -First 1
+          if (-not $tagVersion) {
+            Write-Error "No tags found in repository"
+            exit 1
+          }
           echo "tag_version=$tagVersion" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      - name: Get latest commit message
+        id: commit_message
+        run: |
+          $commitMessage = git log -1 --pretty=%B
+          echo "commit_message=$commitMessage" >> $env:GITHUB_OUTPUT
         shell: pwsh
 
       #      - name: Determine Release Notes File
@@ -46,7 +58,7 @@ jobs:
           git config user.name "huy-lehoangnhat-maersk"
           git config user.email "huy.le@lns.maersk.com"
           git add .
-          git commit -m "Update files to set the new release to ${{ steps.tag_name.outputs.tag_version }}"
+          git commit -m "${{ steps.commit_message.outputs.commit_message }}"
           git push origin update-release-${{ steps.tag_name.outputs.tag_version }}
         shell: bash
 
@@ -55,7 +67,7 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "Update files to set the new release to ${{ steps.tag_name.outputs.tag_version }}"
+          commit-message: "${{ steps.commit_message.outputs.commit_message }}"
           title: "Automated update for release ${{ steps.tag_name.outputs.tag_version }}"
           body: "Automated PR to update version files for release ${{ steps.tag_name.outputs.tag_version }}. Please review and merge."
           base: main
