@@ -14,13 +14,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get tag name
+      - name: Get tag name from main branch
         id: tag_name
         run: |
+          git checkout main
           git pull origin main
           $tagVersion = git tag --sort=-creatordate | Select-Object -First 1
           if (-not $tagVersion) {
-            Write-Error "No tags found in repository"
+            Write-Error "No tags found in main branch"
             exit 1
           }
           echo "tag_version=$tagVersion" >> $env:GITHUB_OUTPUT
