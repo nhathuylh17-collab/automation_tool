@@ -36,7 +36,7 @@ jobs:
           fi
           echo "tag_version=$TAG_VERSION" >> $GITHUB_OUTPUT
           echo "Found latest tag: $TAG_VERSION"  # Debug output
-        shell: pwsh
+        shell: bash
 
       - name: Get latest commit message
         id: commit_message
