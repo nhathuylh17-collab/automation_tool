@@ -13,18 +13,29 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history to access tags
+          fetch-tags: true  # Explicitly fetch tags, even if fetch-depth > 0
+
+      - name: Fetch all tags explicitly
+        run: |
+          git fetch --all --tags --prune
+          echo "Fetched tags. Listing available tags:"
+          git tag --list --sort=-creatordate | head -5  # Debug: List top 5 recent tags
+        shell: bash
 
       - name: Get tag name from main branch
         id: tag_name
         run: |
           git checkout main
           git pull origin main
-          $tagVersion = git tag --sort=-creatordate | Select-Object -First 1
-          if (-not $tagVersion) {
-            Write-Error "No tags found in main branch"
+          TAG_VERSION=$(git tag --list --sort=-creatordate | head -n 1)
+          if [ -z "$TAG_VERSION" ]; then
+            echo "Error: No tags found in main branch"
             exit 1
-          }
-          echo "tag_version=$tagVersion" >> $env:GITHUB_OUTPUT
+          fi
+          echo "tag_version=$TAG_VERSION" >> $GITHUB_OUTPUT
+          echo "Found latest tag: $TAG_VERSION"  # Debug output
         shell: pwsh
 
       - name: Get latest commit message
