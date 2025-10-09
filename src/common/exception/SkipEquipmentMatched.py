@@ -1,0 +1,2 @@
+class SkipEquipmentMatched(Exception):
+    pass

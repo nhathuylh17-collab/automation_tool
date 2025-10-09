@@ -1,0 +1,2 @@
+class SkipRTDI(Exception):
+    pass

@@ -38,22 +38,6 @@ jobs:
           echo "Found latest tag: $TAG_VERSION"  # Debug output
         shell: bash
 
-      - name: Determine Release Notes File
-        id: determine_release_notes
-        run: |
-          if [ -z "${{ steps.tag_name.outputs.tag_version }}" ]; then
-            notes_file="release_notes/default_rn.txt"
-          else
-            notes_file="release_notes/${{ steps.tag_name.outputs.tag_version }}.txt"
-          
-            if [ ! -f "$notes_file" ]; then
-              cp release_notes/default_rn.txt "$notes_file"
-            fi
-          fi
-          commit_message=$(git log -1 --pretty=%B "${{ github.sha }}")
-          echo "::set-output name=notes_file::$notes_file"
-        shell: bash
-
       - name: Get latest commit message
         id: commit_message
         run: |
