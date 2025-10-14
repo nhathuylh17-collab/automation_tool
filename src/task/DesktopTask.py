@@ -1,4 +1,3 @@
-import time
 from abc import ABC
 from logging import Logger
 from typing import Callable, Any
@@ -31,7 +30,7 @@ class DesktopTask(AutomatedTask, ABC):
 
         return False
 
-    def _wait_for_window(self, title: str, max_attempt: int = 20):
+    def _wait_for_window(self, title: str, max_attempt: int = 30):
         current_attempt: int = 0
 
         while current_attempt < max_attempt:
@@ -44,7 +43,7 @@ class DesktopTask(AutomatedTask, ABC):
                     return window_title
 
             current_attempt += 1
-            time.sleep(1)
+            self.sleep()
         raise Exception('Can not find out the asked window {}'.format(title))
 
     def _hotkey_then_close_current_window(self, *args: Any) -> WindowSpecification:

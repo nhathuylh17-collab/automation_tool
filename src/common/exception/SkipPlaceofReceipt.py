@@ -1,0 +1,2 @@
+class SkipPlaceofReceipt(Exception):
+    pass

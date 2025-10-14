@@ -1,2 +1,0 @@
-class SkipOpsTaskClosed(Exception):
-    pass
