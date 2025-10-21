@@ -1,2 +1,0 @@
-class SkipETD(Exception):
-    pass

@@ -1,2 +1,0 @@
-class SkipConfirmBooking(Exception):
-    pass

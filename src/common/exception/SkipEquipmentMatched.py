@@ -1,2 +1,0 @@
-class SkipEquipmentMatched(Exception):
-    pass

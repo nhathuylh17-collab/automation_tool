@@ -14,12 +14,6 @@ from pywinauto.controls.win32_controls import EditWrapper
 from src.common.FileUtil import get_excel_data_in_column_start_at_row
 from src.common.ProcessUtil import get_matching_processes
 from src.common.ThreadLocalLogger import get_current_logger
-from src.common.exception.SkipETD import SkipETD
-from src.common.exception.SkipEmail import SkipEmail
-from src.common.exception.SkipEquipmentMatched import SkipEquipmentMatched
-from src.common.exception.SkipPlaceofReceipt import SkipPlaceofReceipt
-from src.common.exception.SkipToNextShipment_ValidationFailed import SkipToNextShipment_ValidationFailed
-from src.common.exception.SkipToNextShipment_noBookedBy import SkipToNextShipment_noBookedBy
 from src.excel_reader_provider.ExcelReaderProvider import ExcelReaderProvider
 from src.excel_reader_provider.XlwingProvider import XlwingProvider
 from src.task.GCSSTask import GCSSTask
@@ -138,6 +132,42 @@ class No_show_Booking_Cancellation(GCSSTask):
                 self.excel_provider.save(workbook)
                 continue
 
+            except SkipToNextShipment_noBookedBy:
+                logger.error(f'Not found Booked By {shipment}')
+                current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
+                # try to save excel and skip shipment
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    2,
+                                                    'Skip')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    3,
+                                                    'Not found Booked By')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    4,
+                                                    current_timestamp)
+                self.current_status_excel_row_index += 1
+                self.current_element_count += 1
+                self.excel_provider.save(workbook)
+                continue
+
+            except SkipToNextShipment_ValidationFailed:
+                logger.error(f'Validation Failed {shipment}')
+                current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
+                # try to save excel and skip shipment
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    2,
+                                                    'Skip')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    3,
+                                                    'Validation Failed')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    4,
+                                                    current_timestamp)
+                self.current_status_excel_row_index += 1
+                self.current_element_count += 1
+                self.excel_provider.save(workbook)
+                continue
+
             except SkipETD:
                 logger.error(f'ETD not passed - {shipment}')
                 current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
@@ -184,6 +214,78 @@ class No_show_Booking_Cancellation(GCSSTask):
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     3,
                                                     'Place of Receipt not in Vietnam')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    4,
+                                                    current_timestamp)
+                self.current_status_excel_row_index += 1
+                self.current_element_count += 1
+                self.excel_provider.save(workbook)
+                continue
+
+            except SkipShipmentCanceled:
+                logger.error(f'{shipment} canceled before')
+                current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
+                # try to save excel and skip shipment
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    2,
+                                                    'Skip')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    3,
+                                                    'Canceled before')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    4,
+                                                    current_timestamp)
+                self.current_status_excel_row_index += 1
+                self.current_element_count += 1
+                self.excel_provider.save(workbook)
+                continue
+
+            except SkipCannotCreaterowSPOT:
+                logger.error(f'{shipment} cannot create row SPOT')
+                current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
+                # try to save excel and skip shipment
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    2,
+                                                    'Skip')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    3,
+                                                    'Cannot create row SPOT')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    4,
+                                                    current_timestamp)
+                self.current_status_excel_row_index += 1
+                self.current_element_count += 1
+                self.excel_provider.save(workbook)
+                continue
+
+            except SkipToNextShipment_NotfoundrowSpotinMaintainPricingTab:
+                logger.error(f'{shipment} cannot found row SPOT in Maintain and Pricing Tab')
+                current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
+                # try to save excel and skip shipment
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    2,
+                                                    'Skip')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    3,
+                                                    'Cannot found row SPOT in Maintain and Pricing SPOT')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    4,
+                                                    current_timestamp)
+                self.current_status_excel_row_index += 1
+                self.current_element_count += 1
+                self.excel_provider.save(workbook)
+                continue
+
+            except SkipCannotCompletePrepaid:
+                logger.error(f'{shipment} cannot complete Prepaid')
+                current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
+                # try to save excel and skip shipment
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    2,
+                                                    'Skip')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    3,
+                                                    'Cannot complete Prepaid')
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     4,
                                                     current_timestamp)
@@ -259,7 +361,7 @@ class No_show_Booking_Cancellation(GCSSTask):
         self.sleep()
 
         logger.info('Checking place of receipt')
-        # self._check_place_of_receipt(shipment)
+        self._check_place_of_receipt(shipment)
         self.sleep()
 
         logger.info('Checking ETD')
@@ -279,6 +381,7 @@ class No_show_Booking_Cancellation(GCSSTask):
 
         if type_of_product_delivery == 'SPOT':
             logger.info('Handling SPOT shipment')
+            self.sleep()
             self._handle_spot_shipment(shipment)
             status_column_B = "Done"
             status_column_C = "Canceled SPOT Booking"
@@ -329,7 +432,6 @@ class No_show_Booking_Cancellation(GCSSTask):
 
         if not etd_node_data:
             logger.error("No ETD node found under the first (P) node")
-            self._close_windows_util_reach_first_gscc()
             raise SkipETD
 
         try:
@@ -354,7 +456,6 @@ class No_show_Booking_Cancellation(GCSSTask):
             else:
                 logger.info(
                     f"ETD {etd_date.date()} is on or after today {today.date()}, skipping shipment {shipment}")
-                self._close_windows_util_reach_first_gscc()
                 raise SkipETD(f"ETD {etd_date.date()} is on or after today {today.date()}")
 
         except ValueError as e:
@@ -390,7 +491,6 @@ class No_show_Booking_Cancellation(GCSSTask):
                     logger.info('Checked place of receipt {}'.format(text))
                 else:
                     logger.info('This shipment not in Vietnam')
-                    self._close_windows_util_reach_first_gscc()
                     raise SkipPlaceofReceipt
 
     def _check_equipment_matching(self, shipment):
@@ -436,7 +536,6 @@ class No_show_Booking_Cancellation(GCSSTask):
 
         if len(listview_activity.items()) > 0:
             logger.info('Shipment {} has equipment matched'.format(shipment))
-            self._close_windows_util_reach_first_gscc()
             raise SkipEquipmentMatched
 
         if len(listview_activity.items()) == 0:
@@ -446,10 +545,31 @@ class No_show_Booking_Cancellation(GCSSTask):
         logger: Logger = get_current_logger()
         self._wait_for_window(shipment)
 
+        self.into_freight_and_pricing_tab()
+
+        get_text_row_Spot_Booking: str = self.get_listview_text_Spot_booking(
+            search_text_required='Spot Booking No Show Fee')
+
+        if get_text_row_Spot_Booking == '' or get_text_row_Spot_Booking is None:
+            self._try_to_create_row_spot_booking(shipment)
+
+        pyautogui.hotkey('ctrl', 'm')
+        self._refresh_window_title(shipment)
+
         while True:
-            self.sleep()
             pyautogui.hotkey('ctrl', 'm')
+
             self.sleep()
+
+            current_title = self._window_title_stack.peek()
+
+            self._window_title_stack.pop()
+            self._wait_for_window(current_title)
+            self._window_title_stack.peek()
+            self._window_title_stack.append(current_title)
+            gw.getWindowsWithTitle(current_title)[0].activate()
+            self._app: Application = Application().connect(title=current_title)
+            self._window: WindowSpecification = self._app.window(title=current_title)
 
             tree_views: list[TreeViewWrapper] = self._window.children(class_name="SysTreeView32")
             list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
@@ -458,8 +578,37 @@ class No_show_Booking_Cancellation(GCSSTask):
                 break
             self.sleep()
 
+        # into properties tab
         self.into_properties_booking_tab(shipment)
 
+        pyautogui.hotkey('alt', 'k')
+        logger.info('Edited tab Properties')
+        self._refresh_window_title(shipment)
+
+        while True:
+            pyautogui.hotkey('alt', 'k')
+
+            self.sleep()
+
+            current_title = self._window_title_stack.peek()
+
+            self._window_title_stack.pop()
+            self._wait_for_window(current_title)
+            self._window_title_stack.peek()
+            self._window_title_stack.append(current_title)
+            gw.getWindowsWithTitle(current_title)[0].activate()
+            self._app: Application = Application().connect(title=current_title)
+            self._window: WindowSpecification = self._app.window(title=current_title)
+
+            tree_views: list[TreeViewWrapper] = self._window.children(class_name="SysTreeView32")
+            list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
+
+            if tree_views.__len__() == 1 and list_views.__len__() == 0:
+                logger.info('Closed tab properties')
+                break
+            self.sleep()
+
+        # into parties tab
         self.into_parties_tab(shipment)
 
         booked_by_name: str = self.get_listview_text('Booked By')
@@ -477,7 +626,7 @@ class No_show_Booking_Cancellation(GCSSTask):
         credit_party_name: str = self.get_listview_text(search_text_required='Credit Party',
                                                         search_text_additional=booked_by_name)
 
-        if invoice_party_name == '' or credit_party_name == '':
+        if invoice_party_name == '' or credit_party_name == '' or invoice_party_name != booked_by_name or credit_party_name != booked_by_name:
             logger.info('Invoice and Credit parties not found, processing to update these parties')
             self.adding_invoice_and_credit_parties(shipment)
             logger.info('Updated Invoice and Credit Parties')
@@ -501,109 +650,164 @@ class No_show_Booking_Cancellation(GCSSTask):
         # 'Open and interface with 3rd window - Maintain Pricing and Invoicing Window
         # ___________________today'
         self.sleep()
-        self.count_and_choose_all_item_payment_term_collect()
+        self._select_row_SPOT_in_MaintainPricing_tab()
         self.sleep()
 
-        # click button Modify in tab 2nd - Invoice tab
-        buttons: list[ButtonWrapper] = self._window.children(class_name="Button")
-        button_modify: ButtonWrapper = buttons[10]
-        button_modify.click()
+        check_is_term_Prepaid: str = self._get_Payment_text_Spot_booking_for_Maintain_Pricing_tab(
+            search_text_additional='Prepaid', search_text_required='Spot Booking No Show')
 
-        # Into Maintain Invoice Details
-        GCSS_window_maintain: str = self._wait_for_window('Maintain Invoice Details')
-        self._window_title_stack.append(GCSS_window_maintain)
-        gw.getWindowsWithTitle(GCSS_window_maintain)[0].activate()
+        if check_is_term_Prepaid == 'Prepaid':
+            collect_details_collect_status: list[EditWrapper] = self._window.children(class_name="Edit")
 
-        self._app: Application = Application().connect(title=self._window_title_stack.peek())
-        self._window: WindowSpecification = self._app.window(title=self._window_title_stack.peek())
+            try_times = 0
+            while True:
+                if try_times > 3:
+                    # raise SkipToNextShipment_CannotCompleteCollect
+                    logger.info('Cannot Complete Prepaid')
+                    raise SkipCannotCompletePrepaid
 
-        ComboBox_maintain_payment: ComboBoxWrapper = self._window.children(class_name="ComboBox")[0]
-        ComboBox_maintain_payment.select('Collect')
-        logger.info('Choose Collect')
-        self.sleep()
+                self._select_row_SPOT_in_MaintainPricing_tab()
 
-        # when choosing this payment term, it will automate show a dialog Information
-        dialog_title_infor = 'Information'
-        dialog_window = self._app.window(title=dialog_title_infor)
-        try:
-            dialog_window.wait(timeout=5, wait_for='visible')
-            dialog_window.type_keys('{ENTER}')
-            logger.info('Press enter')
-        except Exception:
-            pyautogui.hotkey('tab')
+                buttons: list[ButtonWrapper] = self._window.children(class_name="Button")
+                button_modify: ButtonWrapper = buttons[12]
+                button_modify.click()
 
-        ComboBox_maintain_invoice_party: ComboBoxWrapper = self._window.children(class_name="ComboBox")[1]
-        item_invoices: list[str] = ComboBox_maintain_invoice_party.item_texts()
+                pyautogui.hotkey('alt', 'p')
+                check_collect_details_collect_status = collect_details_collect_status[2]
+                if check_collect_details_collect_status.texts() == 'Yes':
+                    logger.info('Complete Prepaid for SPOT booking {}'.format(shipment))
+                    break
 
-        runner: int = 0
-        for invoice in item_invoices:
+                try_times += 1
+                self.sleep()
 
-            if booked_by_scv_no in invoice:
-                ComboBox_maintain_invoice_party.select(runner)
-                logger.info('Selecting Invoice and Credit Party')
+            self._close_windows_util_reach_first_gscc()
+            return "Complete", "Done"
+        else:
+            # click button Modify in tab 2nd - Invoice tab
+            buttons: list[ButtonWrapper] = self._window.children(class_name="Button")
+            button_modify: ButtonWrapper = buttons[10]
+            button_modify.click()
 
-                dialog_title_qs = 'Question'
-                dialog_window = self._app.window(title=dialog_title_qs)
-                dialog_window.wait(timeout=10, wait_for='visible')
-                dialog_window.type_keys('{ENTER}')
+            # Into Maintain Invoice Details
+            GCSS_window_maintain: str = self._wait_for_window('Maintain Invoice Details')
+            self._window_title_stack.append(GCSS_window_maintain)
+            gw.getWindowsWithTitle(GCSS_window_maintain)[0].activate()
 
-                break
+            self._app: Application = Application().connect(title=self._window_title_stack.peek())
+            self._window: WindowSpecification = self._app.window(title=self._window_title_stack.peek())
 
-            runner += 1
-
-        self.sleep()
-        ComboBox_maintain_collect_business: ComboBoxWrapper = self._window.children(class_name="ComboBox")[3]
-        ComboBox_maintain_collect_business.select('Maersk Bangkok (Bangkok)')
-        logger.info('Choose Maersk bangkok')
-        self.sleep()
-
-        ComboBox_maintain_printable_freight_line: ComboBoxWrapper = self._window.children(class_name="ComboBox")[4]
-        ComboBox_maintain_printable_freight_line.select('Yes')
-        logger.info('Choose Yes')
-        self.sleep()
-
-        # Click OK button in 4th window and window will be auto closed
-        number_of_titles_before = len(gw.getAllTitles())
-        pyautogui.hotkey('alt', 'k')
-
-        # while len(gw.getAllTitles()) == number_of_titles_before:
-        list_btn: list[ButtonWrapper] = self._window.children(class_name="Button")
-        button_ok: ButtonWrapper = list_btn[0]
-        button_ok.click()
-
-        number_of_titles_after = len(gw.getAllTitles())
-
-        if number_of_titles_after > number_of_titles_before:
-            self._window_title_stack.append('Validation failed')
-            raise SkipToNextShipment_ValidationFailed
-
-        self._window_title_stack.pop()
-        self._wait_for_window('Maintain Pricing and Invoicing')
-        self._window_title_stack.peek()
-
-        collect_details_collect_status: EditWrapper = self._window.children(class_name="Edit")[3]
-
-        try_times = 0
-        while True:
-            if try_times > 4:
-                raise SkipToNextShipment_CannotCompleteCollect
-
-            pyautogui.hotkey('alt', 't')
-            if collect_details_collect_status.texts()[0] == 'Yes':
-                break
-
-            try_times += 1
+            ComboBox_maintain_payment: ComboBoxWrapper = self._window.children(class_name="ComboBox")[0]
+            ComboBox_maintain_payment.select('Prepaid')
+            logger.info('Choose Prepaid')
             self.sleep()
 
-        self._close_windows_util_reach_first_gscc()
-        return "Complete", "Done"
+            # when choosing this payment term, it will automate show a dialog Information
+            dialog_title_infor = 'Information'
+            dialog_window = self._app.window(title=dialog_title_infor)
+            try:
+                dialog_window.wait(timeout=5, wait_for='visible')
+                dialog_window.type_keys('{ENTER}')
+                logger.info('Press enter')
+            except Exception:
+                pyautogui.hotkey('tab')
+
+            ComboBox_maintain_invoice_party: ComboBoxWrapper = self._window.children(class_name="ComboBox")[1]
+            item_invoices: list[str] = ComboBox_maintain_invoice_party.item_texts()
+
+            runner: int = 0
+            for invoice in item_invoices:
+
+                if booked_by_scv_no in invoice:
+                    ComboBox_maintain_invoice_party.select(runner)
+                    logger.info('Selecting Invoice and Credit Party')
+
+                    dialog_title_qs = 'Question'
+                    dialog_window = self._app.window(title=dialog_title_qs)
+                    dialog_window.wait(timeout=10, wait_for='visible')
+                    dialog_window.type_keys('{ENTER}')
+
+                    break
+
+                runner += 1
+
+            self.sleep()
+            ComboBox_maintain_collect_business: ComboBoxWrapper = self._window.children(class_name="ComboBox")[3]
+            ComboBox_maintain_collect_business.select('Maersk Line Ho Chi Minh')
+            logger.info('Choose Maersk Line Ho Chi Minh')
+            self.sleep()
+
+            EditText_Invoice_separator: EditWrapper = self._window.children(class_name="Edit")[4]
+            EditText_Invoice_separator.set_edit_text('A')
+            self.sleep()
+
+            ComboBox_maintain_printable_freight_line: ComboBoxWrapper = self._window.children(class_name="ComboBox")[4]
+            ComboBox_maintain_printable_freight_line.select('Yes')
+            logger.info('Choose Yes')
+            self.sleep()
+
+            # Click OK button in 4th window and window will be auto closed
+            number_of_titles_before = len(gw.getAllTitles())
+
+            # click button Modify in tab 2nd - Invoice tab
+            buttons: list[ButtonWrapper] = self._window.children(class_name="Button")
+            button_modify: ButtonWrapper = buttons[0]
+            button_modify.click()
+
+            self.sleep()
+
+            self._refresh_window_title(shipment)
+
+            self._window_title_stack.pop()
+            self._wait_for_window(current_title)
+            self._window_title_stack.peek()
+            self._window_title_stack.append(current_title)
+            gw.getWindowsWithTitle(current_title)[0].activate()
+            self._app: Application = Application().connect(title=current_title)
+            self._window: WindowSpecification = self._app.window(title=current_title)
+
+            self.sleep()
+
+            number_of_titles_after = len(gw.getAllTitles())
+
+            if number_of_titles_after > number_of_titles_before:
+                self._window_title_stack.append('Validation failed')
+                raise SkipToNextShipment_ValidationFailed
+
+            collect_details_collect_status: list[EditWrapper] = self._window.children(class_name="Edit")
+
+            try_times = 0
+            while True:
+                if try_times > 3:
+                    # raise SkipToNextShipment_CannotCompleteCollect
+                    logger.info('Cannot Complete Prepaid')
+                    raise SkipCannotCompletePrepaid
+
+                self._select_row_SPOT_in_MaintainPricing_tab()
+
+                buttons: list[ButtonWrapper] = self._window.children(class_name="Button")
+                button_modify: ButtonWrapper = buttons[12]
+                button_modify.click()
+
+                pyautogui.hotkey('alt', 'p')
+
+                check_collect_details_collect_status = collect_details_collect_status[2]
+                if check_collect_details_collect_status.texts()[2] == 'Yes':
+                    logger.info('Complete Prepaid for SPOT booking {}'.format(shipment))
+                    break
+
+                try_times += 1
+                self.sleep()
+
+            self._close_windows_util_reach_first_gscc()
+            return "Complete", "Done"
 
     def _handle_normal_shipment(self, shipment):
         logger: Logger = get_current_logger()
         self._wait_for_window(shipment)
 
         logger.info('Canceling normal booking {}'.format(shipment))
-        self.into_cancel_booking_tab()
+        self.into_cancel_booking_tab(shipment)
 
         GCSS_window_cancel_booking: str = self._wait_for_window('Cancel Booking')
         self._window_title_stack.append(GCSS_window_cancel_booking)
@@ -660,8 +864,16 @@ class No_show_Booking_Cancellation(GCSSTask):
         logger.info('Canceled Booking')
         self._close_windows_util_reach_first_gscc()
 
-    def into_cancel_booking_tab(self):
+    def into_cancel_booking_tab(self, shipment):
+        self._wait_for_window(shipment)
+
+        try_time = 0
+
         while True:
+
+            if try_time > 3:
+                raise SkipShipmentCanceled
+
             pyautogui.hotkey('alt', 's')
             self.sleep()
 
@@ -672,7 +884,8 @@ class No_show_Booking_Cancellation(GCSSTask):
                 self._window_title_stack.peek()
                 get_current_logger().info('Get window Cancel Booking')
                 break
-            self.sleep()
+
+            try_time += 1
 
     def _select_recipients_email(self):
         logger: Logger = get_current_logger()
@@ -703,11 +916,9 @@ class No_show_Booking_Cancellation(GCSSTask):
                     break
         except Exception as e:
             logger.error(f"Error during expansion: {e}")
-            self._close_windows_util_reach_first_gscc()
             raise SkipEmail
 
         if not email_node:
-            self._close_windows_util_reach_first_gscc()
             raise SkipEmail
 
         # Lấy thông tin email
@@ -726,7 +937,6 @@ class No_show_Booking_Cancellation(GCSSTask):
 
         if not email:
             logger.error("No ETD node found under the first (P) node")
-            self._close_windows_util_reach_first_gscc()
             raise SkipEmail
 
     def _check_treeview_elements(self, shipment):
@@ -794,18 +1004,33 @@ class No_show_Booking_Cancellation(GCSSTask):
         return None
 
     def into_parties_tab(self, shipment):
+        logger: Logger = get_current_logger()
+
+        pyautogui.hotkey('ctrl', 'r')
+        logger.info('Going to Parties tab')
+        self._refresh_window_title(shipment)
 
         while True:
-            self._wait_for_window(shipment)
-
             pyautogui.hotkey('ctrl', 'r')
-            list_views_parties: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
-            tree_views_parties: list[TreeViewWrapper] = self._window.children(class_name="SysTreeView32")
 
-            if len(list_views_parties) == 2 and len(tree_views_parties) == 0:
-                get_current_logger().info('Going to Parties Panel')
+            self.sleep()
+
+            current_title = self._window_title_stack.peek()
+
+            self._window_title_stack.pop()
+            self._wait_for_window(current_title)
+            self._window_title_stack.peek()
+            self._window_title_stack.append(current_title)
+            gw.getWindowsWithTitle(current_title)[0].activate()
+            self._app: Application = Application().connect(title=current_title)
+            self._window: WindowSpecification = self._app.window(title=current_title)
+
+            tree_views: list[TreeViewWrapper] = self._window.children(class_name="SysTreeView32")
+            list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
+
+            if tree_views.__len__() == 0 and list_views.__len__() == 2:
+                logger.info('Closed tab properties')
                 break
-
             self.sleep()
 
     def into_properties_booking_tab(self, shipment):
@@ -845,19 +1070,6 @@ class No_show_Booking_Cancellation(GCSSTask):
             if child.class_name() == "Edit" and child.control_id() == 1001:
                 child.type_keys("Shipped on Board")
                 self.sleep()
-
-        list_btn: list[ButtonWrapper] = self._window.children(class_name="Button")
-        button_ok: ButtonWrapper = list_btn[8]
-        button_ok.click()
-        self.sleep()
-
-        self._window_title_stack.pop()
-        self._wait_for_window(shipment)
-        gw.getWindowsWithTitle(self._wait_for_window(shipment))[0].activate()
-        self._app: Application = Application().connect(title=self._window_title_stack.peek())
-        self._window: WindowSpecification = self._app.window(title=self._window_title_stack.peek())
-
-        logger.info('Done setting {} in Booking Properties panel'.format(shipment))
 
     def get_listview_text(self, search_text_required: str, search_text_additional: str = None) -> str:
         logger: Logger = get_current_logger()
@@ -977,8 +1189,8 @@ class No_show_Booking_Cancellation(GCSSTask):
         button_right.click()
 
         # Click OK button to close Party Details
-        pyautogui.hotkey('alt', 'k')
-
+        self._window = self._hotkey_then_close_current_window('alt', 'k')
+        get_current_logger().info('Added Inv and Cre party')
         self.sleep()
 
         current_window_title: Win32Window = gw.getActiveWindow().title
@@ -987,15 +1199,22 @@ class No_show_Booking_Cancellation(GCSSTask):
             raise SkipToNextShipment_ValidationFailed
 
         self._window_title_stack.pop()
+        self._window_title_stack.pop()
         self._wait_for_window(shipment)
         self._window_title_stack.peek()
 
     def into_freight_and_pricing_tab(self):
+
         while True:
             pyautogui.hotkey('ctrl', 'g')
 
             list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
-            if list_views.__len__() == 6:
+
+            if list_views.__len__() == 3:
+                get_current_logger().info('This shipment already canceled before')
+                raise SkipShipmentCanceled
+
+            elif list_views.__len__() == 6:
                 break
 
             self.sleep()
@@ -1009,3 +1228,332 @@ class No_show_Booking_Cancellation(GCSSTask):
                 break
             # list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
             self.sleep()
+
+    def get_listview_text_Spot_booking(self, search_text_required: str,
+                                       search_text_additional: Optional[str] = None) -> str:
+        logger: Logger = get_current_logger()
+
+        listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[0]
+
+        for index, item in enumerate(listview_activity.items()):
+
+            try:
+
+                if search_text_additional:
+                    if item.text().startswith(search_text_additional) and item.text().startswith(search_text_required):
+                        item.select()
+                        result_text = item.text()
+                        logger.info(f'{search_text_required} found')
+                        return result_text
+                else:
+                    if item.text().startswith(search_text_required):
+                        item.select()
+                        result_text = item.text()
+                        logger.info(f'Found the row {search_text_required}')
+                        return result_text
+
+            except:
+                logger.info(f"Not found {search_text_required}")
+                continue
+
+    def _try_to_create_row_spot_booking(self, shipment):
+        logger: Logger = get_current_logger()
+        logger.info('Trying to create row SPOT Booking in tab Freight and Pricing')
+
+        # Click Reprice button
+        list_btn: list[ButtonWrapper] = self._window.children(class_name="Button")
+        button_ok: ButtonWrapper = list_btn[6]
+        button_ok.click()
+        self.sleep()
+
+        pyautogui.hotkey('ctrl', 'k')
+
+        self._refresh_window_title(shipment)
+
+        while True:
+            pyautogui.hotkey('ctrl', 'k')
+            self.sleep()
+
+            current_title = self._window_title_stack.peek()
+
+            self._window_title_stack.pop()
+            self._wait_for_window(current_title)
+            self._window_title_stack.peek()
+            self._window_title_stack.append(current_title)
+            gw.getWindowsWithTitle(current_title)[0].activate()
+            self._app: Application = Application().connect(title=current_title)
+            self._window: WindowSpecification = self._app.window(title=current_title)
+
+            list_views: list[ListViewWrapper] = self._window.children(class_name="SysListView32")
+            tree_views: list[TreeViewWrapper] = self._window.children(class_name="SysTreeView32")
+            if list_views.__len__() == 2 and tree_views.__len__() == 1:
+                break
+
+        self.into_cancel_booking_tab(shipment)
+
+        GCSS_window_cancel_booking: str = self._wait_for_window('Cancel Booking')
+        self._window_title_stack.append(GCSS_window_cancel_booking)
+        gw.getWindowsWithTitle(GCSS_window_cancel_booking)[0].activate()
+
+        self._app: Application = Application().connect(title=self._window_title_stack.peek())
+        self._window: WindowSpecification = self._app.window(title=self._window_title_stack.peek())
+
+        def find_editable_combobox_in_cancel_booking_tab(control):
+            if control.class_name() == "ComboBox" and control.control_id() == 50001:
+                for child in control.children():
+                    if child.class_name() == "Edit" and child.control_id() == 1001:
+                        return control
+            for child in control.children():
+                result = find_editable_combobox_in_cancel_booking_tab(child)
+                if result:
+                    return result
+            return None
+
+        target_combobox = find_editable_combobox_in_cancel_booking_tab(self._window)
+
+        if target_combobox:
+            for child in target_combobox.children():
+                if child.class_name() == "Edit" and child.control_id() == 1001:
+                    child.type_keys("Cargo not ready")
+                    self.sleep()
+
+        self._select_recipients_email()
+
+        message_spot_shipment: str = 'Cargo no show - unmaterialized spot booking past ETD without equipment pick up yet Spot Penalty, no show fee applied.'
+        message_box = self._window.child_window(control_id=50008, class_name="Edit")
+        message_box.set_edit_text(message_spot_shipment)
+
+        list_btn: list[ButtonWrapper] = self._window.children(class_name="Button")
+        button_ok: ButtonWrapper = list_btn[2]
+        button_ok.click()
+        self.sleep()
+
+        # handle 1st window warning
+        window_cancel_booking: str = self._wait_for_window('Warning')
+        self._window_title_stack.append(window_cancel_booking)
+        gw.getWindowsWithTitle(window_cancel_booking)[0].activate()
+
+        self._app: Application = Application().connect(title=self._window_title_stack.peek())
+        self._window: WindowSpecification = self._app.window(title=self._window_title_stack.peek())
+
+        list_btn: list[ButtonWrapper] = self._window.children(class_name="Button")
+        button_ok: ButtonWrapper = list_btn[0]
+        button_ok.click()
+        self.sleep()
+
+        self._window_title_stack.pop()
+        self._window_title_stack.pop()
+        self._wait_for_window(shipment)
+
+        # handle 2nd window warning
+        current_title = self._window_title_stack.peek()
+
+        self._wait_for_window(current_title)
+        self._window_title_stack.peek()
+        self._window_title_stack.append(current_title)
+        gw.getWindowsWithTitle(current_title)[0].activate()
+        self._app: Application = Application().connect(title=current_title)
+        self._window: WindowSpecification = self._app.window(title=current_title)
+
+        # click OK in 2nd window warning
+        list_btn: list[ButtonWrapper] = self._window.children(class_name="Button")
+        button_ok: ButtonWrapper = list_btn[0]
+        button_ok.click()
+        self.sleep()
+
+        self._window_title_stack.pop()
+        self._window_title_stack.pop()
+        self._wait_for_window(shipment)
+
+        self.into_freight_and_pricing_tab()
+
+        list_btn: list[ButtonWrapper] = self._window.children(class_name="Button")
+        button_ok: ButtonWrapper = list_btn[6]
+        button_ok.click()
+
+        self._refresh_window_title(shipment)
+
+        try_runner = 0
+        while try_runner <= 5:
+            try:
+                get_text_row_Spot_Booking: str = self.get_listview_text_Spot_booking(
+                    search_text_required='Spot Booking No Show Fee')
+
+                if get_text_row_Spot_Booking != '' or get_text_row_Spot_Booking is not None:
+                    break
+
+            except Exception as e:
+                if try_runner == 5:
+                    raise SkipCannotCreaterowSPOT()
+                pass
+
+            try_runner += 1
+
+        if try_runner > 5:
+            raise SkipCannotCreaterowSPOT()
+
+        logger.info('Created successfull row SPOT Booking in tab Freight and Pricing')
+
+    def _refresh_window_title(self, shipment):
+        old_window_titles: list[str] = gw.getAllTitles()
+        max_attempts: int = 3
+        attempt: int = 0
+
+        while attempt < max_attempts:
+            new_window_titles: list[str] = gw.getAllTitles()
+
+            if new_window_titles != old_window_titles:
+                self.sleep()
+                self._window_title_stack.pop()
+
+                new_title = self._wait_for_window(shipment)
+                self._window_title_stack.append(new_title)
+                gw.getWindowsWithTitle(new_title)[0].activate()
+
+                self._app: Application = Application().connect(title=new_title)
+                self._window: WindowSpecification = self._app.window(title=new_title)
+
+                return
+
+            attempt += 1
+            self.sleep()
+
+        # No title change detected after max attempts; assume window refresh
+        # Reconnect to the existing window without popping the stack
+        current_title = self._window_title_stack.peek()
+
+        self._window_title_stack.pop()
+        self._wait_for_window(current_title)
+        self._window_title_stack.peek()
+        self._window_title_stack.append(current_title)
+        gw.getWindowsWithTitle(current_title)[0].activate()
+        self._app: Application = Application().connect(title=current_title)
+        self._window: WindowSpecification = self._app.window(title=current_title)
+
+    def _select_row_SPOT_in_MaintainPricing_tab(self):
+        """"
+            select row SPOT in Maintain Pricing Tab
+        """
+        logger: Logger = get_current_logger()
+
+        list_views: ListViewWrapper = self._window.children(class_name="SysListView32")[1]
+
+        get_row_SPOT: str = self.get_listview_text_Spot_booking_for_Maintain_Pricing_tab(
+            search_text_required='Spot Booking No Show Fee')
+
+        if get_row_SPOT == '' or get_row_SPOT is None:
+            raise SkipToNextShipment_NotfoundrowSpotinMaintainPricingTab
+        else:
+            for item in list_views.items():
+                item: _listview_item
+                if str(item.text()) == get_row_SPOT:
+                    item.select()
+
+    def get_listview_text_Spot_booking_for_Maintain_Pricing_tab(self, search_text_required: str,
+                                                                search_text_additional: Optional[str] = None) -> str:
+        logger: Logger = get_current_logger()
+
+        listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[1]
+
+        for index, item in enumerate(listview_activity.items()):
+
+            try:
+
+                if search_text_additional:
+                    if item.text().startswith(search_text_additional) and item.text().startswith(search_text_required):
+                        item.select()
+                        result_text = item.text()
+                        logger.info(f'{search_text_required} found')
+                        return result_text
+                else:
+                    if item.text().startswith(search_text_required):
+                        item.select()
+                        result_text = item.text()
+                        logger.info(f'Found the row {search_text_required}')
+                        return result_text
+
+            except:
+                logger.info(f"Not found {search_text_required}")
+                continue
+
+    def _get_Payment_text_Spot_booking_for_Maintain_Pricing_tab(self, search_text_required: str,
+                                                                search_text_additional: Optional[str] = None) -> str:
+        logger: Logger = get_current_logger()
+
+        listview_activity: ListViewWrapper = self._window.children(class_name="SysListView32")[1]
+
+        runner = 0
+        processing_cells: list[_listview_item] = [None] * 12
+        result_text = ''
+
+        for item in listview_activity.items():
+            processing_cells[runner] = item
+
+            if runner != 5:
+                runner = runner + 1
+                continue
+
+            runner = 0
+            # Check both conditions if search_text_1 is provided
+            if search_text_additional and processing_cells[5].text().startswith(search_text_additional) and \
+                    processing_cells[0].text().startswith(search_text_required):
+
+                processing_cells[5].select()
+
+                result_text = processing_cells[5].text()
+                logger.info(f'{search_text_required} found, result is {result_text}')
+                return result_text
+            # Check only search_text_2 if search_text_1 is not provided
+            elif not search_text_additional and processing_cells[0].text().startswith(search_text_required):
+
+                processing_cells[0].select()
+
+                result_text = processing_cells[0].text()
+                logger.info(f'{search_text_required} is {result_text}')
+                return result_text
+            processing_cells = [None] * 12
+
+        logger.info(
+            f'Not found {search_text_required}' + (
+                f' with {search_text_additional}' if search_text_additional else ''))
+        return result_text
+
+
+class SkipShipmentCanceled(Exception):
+    pass
+
+
+class SkipCannotCreaterowSPOT(Exception):
+    pass
+
+
+class SkipToNextShipment_NotfoundrowSpotinMaintainPricingTab(Exception):
+    pass
+
+
+class SkipCannotCompletePrepaid(Exception):
+    pass
+
+
+class SkipEquipmentMatched(Exception):
+    pass
+
+
+class SkipETD(Exception):
+    pass
+
+
+class SkipPlaceofReceipt(Exception):
+    pass
+
+
+class SkipEmail(Exception):
+    pass
+
+
+class SkipToNextShipment_noBookedBy(Exception):
+    pass
+
+
+class SkipToNextShipment_ValidationFailed(Exception):
+    pass
