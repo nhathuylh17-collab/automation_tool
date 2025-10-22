@@ -267,7 +267,7 @@ class No_show_Booking_Cancellation(GCSSTask):
                                                     'Skip')
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     3,
-                                                    'Cannot found row SPOT in Maintain and Pricing SPOT')
+                                                    'Cannot found row SPOT in Maintain and Pricing')
                 self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
                                                     4,
                                                     current_timestamp)
@@ -871,7 +871,7 @@ class No_show_Booking_Cancellation(GCSSTask):
 
         while True:
 
-            if try_time > 3:
+            if try_time > 2:
                 raise SkipShipmentCanceled
 
             pyautogui.hotkey('alt', 's')
