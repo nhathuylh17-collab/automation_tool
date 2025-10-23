@@ -411,12 +411,23 @@ class No_show_Booking_Cancellation(GCSSTask):
             logger.error("No root nodes found in TreeView")
             return None
 
-        # Find the first root node starting with "(P)"
-        first_p_node = root_nodes[0]
+        # Find the first root node containing "MVS" in its text
+        first_mvs_node = None
+        for node in root_nodes:
+            node_text = node.text() if hasattr(node, 'text') else ""
+            parts = node_text.split("|")
+            second_part = parts[2]
+            if len(second_part) >= 3 and second_part[:3] == "MVS":
+                first_mvs_node = node
+                break
 
-        # Search for ETD node among children of the first (P) node
+        if not first_mvs_node:
+            logger.error("No root node with mode 'MVS' found in TreeView")
+            return None
+
+        # Search for ETD node among children of the first MVS node
         etd_node_data = None
-        for child in first_p_node.children():
+        for child in first_mvs_node.children():
             child_text = child.text()
             if child_text.startswith("ETD:"):
                 control_id = child.control_id() if hasattr(child, 'control_id') else "N/A"
@@ -431,7 +442,7 @@ class No_show_Booking_Cancellation(GCSSTask):
                 break
 
         if not etd_node_data:
-            logger.error("No ETD node found under the first (P) node")
+            logger.error("No ETD node found under the first MVS node")
             raise SkipETD
 
         try:
