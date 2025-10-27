@@ -66,7 +66,13 @@ class Download_Blx(WebTask):
 
         self._type_when_element_present(by=By.ID, value='username', content=username)
         self._type_when_element_present(by=By.ID, value='password', content=password)
-        self._click_and_wait_navigate_to_other_page(by=By.CSS_SELECTOR, value='input[type=button]')
+
+        self._click_and_wait_navigate_to_other_page(by=By.CSS_SELECTOR, value='input[type="button"].submit')
+        self.sleep()
+        current_url: str = self._driver.current_url
+        expect_url: str = 'https://apll.get-traction.com/traction#/home'
+        if current_url != expect_url:
+            self._click_and_wait_navigate_to_other_page(by=By.CSS_SELECTOR, value='input[type="button"].submit')
 
     def operation_on_each_element(self, bill):
         logger: Logger = get_current_logger()
@@ -105,6 +111,7 @@ class Download_Blx(WebTask):
 
     def __navigate_and_download(self, bill: str) -> None:
         logger: Logger = get_current_logger()
+        self.wait_for_page_load(timeout=10)
         self._type_when_element_present(by=By.CSS_SELECTOR, value='#local-nav input.gwt-TextBox', content=bill)
         # click find button
         self._click_when_element_present(by=By.CSS_SELECTOR, value='#local-nav button.gwt-Button')
