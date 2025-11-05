@@ -1,0 +1,4 @@
+2025_11_01 - Dev: HNL014 Huy Le
+Build for ticket GCSS - No show Booking
+Can choose any profile start with "Maersk" in window Maintain and Pricing
+Add special product type for excluding, not cancel these booking
