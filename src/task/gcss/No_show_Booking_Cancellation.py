@@ -312,6 +312,24 @@ class No_show_Booking_Cancellation(GCSSTask):
                 self.excel_provider.save(workbook)
                 continue
 
+            except Skip_Spotshipment:
+                logger.error(f'{shipment} is SPOT shipment')
+                current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
+                # try to save excel and skip shipment
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    2,
+                                                    'Skip')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    3,
+                                                    'SPOT shipment')
+                self.excel_provider.change_value_at(self.current_worksheet, self.current_status_excel_row_index,
+                                                    4,
+                                                    current_timestamp)
+                self.current_status_excel_row_index += 1
+                self.current_element_count += 1
+                self.excel_provider.save(workbook)
+                continue
+
             except Skip_specialproduct:
                 logger.error(f'{shipment} has Special product as MLO, SOC, TWILL or VSA')
                 current_timestamp = datetime.now().strftime("%m/%d/%Y %I:%M %p")
@@ -419,9 +437,7 @@ class No_show_Booking_Cancellation(GCSSTask):
             logger.info('Handling SPOT shipment')
             self.sleep()
             self._handle_spot_shipment(shipment)
-            status_column_B = "Done"
-            status_column_C = "Canceled SPOT Booking"
-            return status_column_B, status_column_C
+            raise Skip_Spotshipment
 
         if type_of_product_delivery == 'Normal':
             logger.info('Handling normal shipment')
@@ -1732,4 +1748,8 @@ class SkipClosedBefore(Exception):
 
 
 class Skip_specialproduct(Exception):
+    pass
+
+
+class Skip_Spotshipment(Exception):
     pass
