@@ -254,3 +254,8 @@ class WebTask(AutomatedTask, ABC):
         if finding_option is None:
             raise Exception('Can not find out the option whose inner text match your search keyword')
         return finding_option
+
+    def wait_for_page_load(self, timeout: int = 10):
+        WebDriverWait(self._driver, timeout).until(
+            lambda d: d.execute_script("return document.readyState") == "complete"
+        )
