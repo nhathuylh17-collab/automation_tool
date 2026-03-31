@@ -1,9 +1,9 @@
 name: Build and Package on Windows
 run-name: ${{ github.actor }} try to build and package the Automation Tool per release
 on:
-  pull_request:
-    types:
-      - closed
+  push:
+    tags:
+      - '*v*'
 
 jobs:
   build:
