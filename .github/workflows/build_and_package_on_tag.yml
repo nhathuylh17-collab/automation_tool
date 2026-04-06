@@ -1,10 +1,9 @@
 name: Build and Package on Windows
 run-name: ${{ github.actor }} try to build and package the Automation Tool per release
 on:
-  push:
-    tags:
-      - 'v*'
-  workflow_dispatch:
+  pull_request:
+    types:
+      - closed
 
 jobs:
   build:
@@ -14,6 +13,69 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Fetch all tags explicitly
+        run: |
+          git fetch --all --tags --prune
+          echo "Fetched tags. Listing available tags:"
+          git tag --list --sort=-creatordate | head -5  # Debug: List top 5 recent tags
+        shell: bash
+
+      - name: Get tag name from main branch
+        id: tag_name
+        run: |
+          git checkout main
+          git pull origin main
+          TAG_VERSION=$(git tag --list --sort=-creatordate | head -n 1)
+          if [ -z "$TAG_VERSION" ]; then
+            echo "Error: No tags found in main branch"
+            exit 1
+          fi
+          echo "tag_version=$TAG_VERSION" >> $GITHUB_OUTPUT
+          echo "Found latest tag: $TAG_VERSION"  # Debug output
+        shell: bash
+
+      - name: Get latest commit message
+        id: commit_message
+        run: |
+          $commitMessage = git log -1 --pretty=%B
+          echo "commit_message=$commitMessage" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      - name: Update the file storing latest release version information
+        run: |
+          git fetch origin
+          git checkout -b update-release-${{ steps.tag_name.outputs.tag_version }}
+          echo "${{ steps.tag_name.outputs.tag_version }}" > release_notes/current_release_version.txt
+          sed -i "1s/#define MyAppVersion \".*\"/#define MyAppVersion \"${{ steps.tag_name.outputs.tag_version }}\"/" automation_tool.iss
+          git config user.name "huy-lehoangnhat-maersk"
+          git config user.email "huy.le@lns.maersk.com"
+          git add .
+          git commit -m "${{ steps.commit_message.outputs.commit_message }}"
+          git push origin update-release-${{ steps.tag_name.outputs.tag_version }}
+        shell: bash
+
+      - name: Create Pull Request
+        id: create_pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "${{ steps.commit_message.outputs.commit_message }}"
+          title: "Automated update for release ${{ steps.tag_name.outputs.tag_version }}"
+          body: "Automated PR to update version files for release ${{ steps.tag_name.outputs.tag_version }}. Please review and merge."
+          base: main
+          branch: update-release-${{ steps.tag_name.outputs.tag_version }}
+          assignees: huy-lehoangnhat-maersk
+
+      - name: Checkout updated branch for build
+        run: |
+          git fetch origin
+          git checkout update-release-${{ steps.tag_name.outputs.tag_version }}
+          echo "Now on branch: $(git branch --show-current). Using updated automation_tool.iss with version ${{ steps.tag_name.outputs.tag_version }}"
+        shell: bash
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -26,6 +88,7 @@ jobs:
           cmd /c call venv\Scripts\activate
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install --upgrade comtypes
 
       - name: Build executable
         run: |
@@ -37,9 +100,10 @@ jobs:
         run: |
           if exist dist (
               xcopy input dist\input /E /H /C /I
-              xcopy output dist\output /E /H /C /I
-              xcopy script dist\script /E /H /C /I
-              xcopy release_note dist\release_note /E /H /C /I
+              xcopy release_notes dist\release_notes /E /H /C /I
+              xcopy src\task\web dist\src\task\web /E /H /C /I
+              xcopy src\task\desktop dist\src\task\desktop /E /H /C /I
+              xcopy src\task\arbitrary dist\src\task\arbitrary /E /H /C /I
           )
         shell: cmd
 
@@ -49,17 +113,13 @@ jobs:
           dir dist
         shell: cmd
 
-      - name: Run Inno Setup to create the installer
-        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
-        with:
-          path: automation_tool.iss
-          options: /O+
+      - name: Install Inno Setup
+        run: choco install innosetup -y
 
-      - name: Get tag name
-        id: tag_name
+      - name: Build Installer
         run: |
-          $tagName = $env:GITHUB_REF -replace 'refs/tags/', ''
-          Write-Output "::set-output name=tag_version::$tagName"
+          & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" /DMyAppVersion="${{ steps.tag_name.outputs.tag_version }}" "automation_tool.iss"
+        shell: pwsh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -67,30 +127,16 @@ jobs:
           name: automation_tool_${{ steps.tag_name.outputs.tag_version }}
           path: dist/automation_tool.exe
 
-      - name: Determine Release Notes File
-        id: determine_release_note
+      - name: Read Release Notes
+        id: read_release_notes
         run: |
-          if [ -z "${{ steps.tag_name.outputs.tag_version }}" ]; then
-            notes_file="release_note/default_rn.txt"
-          else
-            notes_file="release_note/${{ steps.tag_name.outputs.tag_version }}.txt"
-            if [ ! -f "$notes_file" ]; then
-              notes_file="release_note/default_rn.txt"
-            fi
-          fi
-          echo "::set-output name=notes_file::$notes_file"
-        shell: bash
-
-      - name: Read Release Note
-        id: read_release_note
-        run: |
-          notes_file="${{ steps.determine_release_note.outputs.notes_file }}"
+          notes_file="${{ steps.determine_release_notes.outputs.notes_file }}"
           if [ -f "$notes_file" ]; then
             notes=$(cat "$notes_file")
           else
             notes=""
           fi
-          echo "::set-output name=release_note::$notes"
+          echo "::set-output name=release_notes::$notes"
         shell: bash
 
       - name: Create Release
@@ -101,7 +147,7 @@ jobs:
         with:
           tag_name: ${{ steps.tag_name.outputs.tag_version }}
           release_name: Release ${{ steps.tag_name.outputs.tag_version }}
-          body_path: ${{ steps.determine_release_note.outputs.notes_file }}
+          body_path: ${{ steps.determine_release_notes.outputs.notes_file }}
 
       - name: Upload Release Asset
         id: upload-release-asset
@@ -113,3 +159,18 @@ jobs:
           asset_path: dist/automation_tool_installer.exe
           asset_name: automation_tool_installer_${{ steps.tag_name.outputs.tag_version }}.exe
           asset_content_type: application/octet-stream
+
+      - name: Delete update branch
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branchName = `update-release-${{ steps.tag_name.outputs.tag_version }}`;
+            await github.rest.git.deleteRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `heads/${branchName}`
+            });
+            console.log(`Deleted branch: ${branchName}`);
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
